@@ -304,3 +304,23 @@ background: rgba(101, 248, 165, 0.16);
   border-radius: 50%;
   background: #ffffff;
 }
+
+.weather-details{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid rgba(218, 242, 255, 0.2);
+  border-radius: 18px;
+  background: rgba(3, 28, 48, 0.42);
+}
+
+
+.weather-detail {
+  display: grid;
+  min-height: 78px;
+  grid-template-columns: auto 1fr;
+  gap: 2px 9px;
+  align-content: center;
+  padding: 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
