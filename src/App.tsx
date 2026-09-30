@@ -340,3 +340,21 @@ function App() {
 }
 
 export default App;
+
+interface GeoCodingResult {
+  name: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface WeatherResponse{
+  current: {
+    temperature_2m: number;
+    relative_humidity_2m: number;
+    apparent_temperature_2m: number;
+    preciptation_probability: number;
+    wind_speed_10m: number;
+    weather_code: number;
+  };
+}
