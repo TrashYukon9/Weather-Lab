@@ -1,4 +1,6 @@
+
 import { useRef, useState, type FormEvent } from "react";
+
 import {
   Bookmark,
   ChevronLeft,
@@ -35,6 +37,28 @@ interface SavedCity {
   max: number;
   min: number;
   Icon: LucideIcon;
+}
+
+interface GeocodingResult {
+  name: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface WeatherResponse {
+  current: {
+    time: string;
+    temperature_2m: number;
+    relative_humidity_2m: number;
+    apparent_temperature: number;
+    wind_speed_10m: number;
+    weather_code: number;
+  };
+  hourly: {
+    time: string[];
+    precipitation_probability: number[];
+  };
 }
 
 const forecast: ForecastDay[] = [
@@ -82,18 +106,151 @@ const initialCities: SavedCity[] = [
   },
 ];
 
+async function searchCity(
+  city: string,
+): Promise<GeocodingResult | null> {
+  const response = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+      city,
+    )}&count=1&language=pt&format=json`,
+  );
+
+  if (!response.ok) {
+    throw new Error("Não foi possível buscar a cidade.");
+  }
+
+  const data = await response.json();
+
+  if (!data.results || data.results.length === 0) {
+    return null;
+  }
+
+  const result = data.results[0];
+
+  return {
+    name: result.name,
+    country: result.country,
+    latitude: result.latitude,
+    longitude: result.longitude,
+  };
+}
+
+async function getWeather(
+  latitude: number,
+  longitude: number,
+): Promise<WeatherResponse> {
+  const response = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&hourly=precipitation_probability&forecast_days=1&timezone=auto`,
+  );
+
+  if (!response.ok) {
+    throw new Error("Não foi possível buscar o clima.");
+  }
+
+  return response.json();
+}
+
+function getWeatherDescription(code: number): string {
+  if (code === 0) return "Céu limpo";
+  if (code === 1) return "Predominantemente limpo";
+  if (code === 2) return "Parcialmente nublado";
+  if (code === 3) return "Nublado";
+  if (code === 45 || code === 48) return "Neblina";
+
+  if (code >= 51 && code <= 57) {
+    return "Garoa";
+  }
+
+  if (code >= 61 && code <= 67) {
+    return "Chuva";
+  }
+
+  if (code >= 71 && code <= 77) {
+    return "Neve";
+  }
+
+  if (code >= 80 && code <= 82) {
+    return "Pancadas de chuva";
+  }
+
+  if (code >= 85 && code <= 86) {
+    return "Pancadas de neve";
+  }
+
+  if (code >= 95) {
+    return "Tempestade";
+  }
+
+  return "Condição meteorológica variável";
+}
+
+function getWeatherIcon(code: number): LucideIcon {
+  if (code === 0) return Sun;
+  if (code === 1 || code === 2) return CloudSun;
+  if (code === 3 || code === 45 || code === 48) return Cloud;
+  if (code >= 51) return CloudRain;
+
+  return CloudSun;
+}
+
 function App() {
   const [search, setSearch] = useState("");
   const [isFavorite, setIsFavorite] = useState(false);
   const [savedCities, setSavedCities] =
     useState<SavedCity[]>(initialCities);
 
+  const [weather, setWeather] =
+    useState<WeatherResponse | null>(null);
+
+  const [selectedCity, setSelectedCity] =
+    useState<GeocodingResult | null>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   const savedListRef = useRef<HTMLDivElement>(null);
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
+  async function handleSearch(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
-    // Na próxima etapa, chamaremos a API aqui.
+    const city = search.trim();
+
+    if (!city) return;
+
+    setLoading(true);
+    setErrorMessage("");
+    setWeather(null);
+
+    try {
+      const cityResult = await searchCity(city);
+
+      if (!cityResult) {
+        setSelectedCity(null);
+        setErrorMessage(
+          "Cidade não encontrada. Tente outro nome.",
+        );
+        return;
+      }
+
+      const weatherResult = await getWeather(
+        cityResult.latitude,
+        cityResult.longitude,
+      );
+
+      setSelectedCity(cityResult);
+      setWeather(weatherResult);
+      setIsFavorite(false);
+    } catch (error) {
+      console.error("Erro ao buscar o clima:", error);
+
+      setErrorMessage(
+        "Não foi possível consultar o clima. Tente novamente.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   function removeCity(cityName: string) {
@@ -109,6 +266,39 @@ function App() {
     });
   }
 
+  const currentWeatherIcon = weather
+    ? getWeatherIcon(weather.current.weather_code)
+    : CloudSun;
+
+  const currentTemperature = weather
+    ? Math.round(weather.current.temperature_2m)
+    : 23;
+
+  const currentDescription = weather
+    ? getWeatherDescription(weather.current.weather_code)
+    : "Parcialmente nublado";
+
+  const currentRainProbability = weather
+    ? (() => {
+        const index = weather.hourly.time.indexOf(
+          weather.current.time,
+        );
+
+        return index >= 0
+          ? weather.hourly.precipitation_probability[index]
+          : 0;
+      })()
+    : 20;
+
+  const cityName = selectedCity?.name ?? "São Paulo";
+  const countryName = selectedCity?.country ?? "Brasil";
+
+  const today = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
   return (
     <div className="weather-app">
       <header className="topbar glass-panel">
@@ -122,13 +312,19 @@ function App() {
           </span>
         </a>
 
-        <nav className="navigation" aria-label="Navegação principal">
+        <nav
+          className="navigation"
+          aria-label="Navegação principal"
+        >
           <a className="navigation-link active" href="#inicio">
             <Home />
             Início
           </a>
 
-          <a className="navigation-link" href="#cidades-salvas">
+          <a
+            className="navigation-link"
+            href="#cidades-salvas"
+          >
             <Bookmark />
             Cidades salvas
           </a>
@@ -141,7 +337,10 @@ function App() {
       </header>
 
       <main className="dashboard" id="inicio">
-        <form className="search-bar glass-panel" onSubmit={handleSearch}>
+        <form
+          className="search-bar glass-panel"
+          onSubmit={handleSearch}
+        >
           <MapPin className="search-location-icon" />
 
           <input
@@ -152,10 +351,24 @@ function App() {
             value={search}
           />
 
-          <button aria-label="Pesquisar" type="submit">
+          <button
+            aria-label="Pesquisar"
+            type="submit"
+            disabled={loading}
+          >
             <Search />
           </button>
         </form>
+
+        {loading && (
+          <p role="status">
+            Buscando informações do clima...
+          </p>
+        )}
+
+        {errorMessage && (
+          <p role="alert">{errorMessage}</p>
+        )}
 
         <section className="main-weather-grid">
           <article className="current-weather glass-panel">
@@ -163,17 +376,17 @@ function App() {
               <div>
                 <h1>
                   <MapPin />
-                  São Paulo, Brasil
+                  {cityName}, {countryName}
                 </h1>
 
-                <p>Quinta-feira, 20 de agosto</p>
+                <p>{today}</p>
               </div>
 
               <button
                 aria-label={
                   isFavorite
-                    ? "Remover São Paulo dos favoritos"
-                    : "Adicionar São Paulo aos favoritos"
+                    ? "Remover cidade dos favoritos"
+                    : "Adicionar cidade aos favoritos"
                 }
                 aria-pressed={isFavorite}
                 className={`favorite-button ${
@@ -182,22 +395,33 @@ function App() {
                 onClick={() => setIsFavorite(!isFavorite)}
                 type="button"
               >
-                <Heart fill={isFavorite ? "currentColor" : "none"} />
+                <Heart
+                  fill={isFavorite ? "currentColor" : "none"}
+                />
               </button>
             </header>
 
             <div className="current-weather-content">
               <div className="main-weather-icon">
-                <CloudSun />
+                {(() => {
+                  const Icon = currentWeatherIcon;
+                  return <Icon />;
+                })()}
               </div>
 
               <div className="temperature-information">
-                <strong>23°</strong>
-                <h2>Parcialmente nublado</h2>
+                <strong>{currentTemperature}°</strong>
+
+                <h2>{currentDescription}</h2>
+
                 <p>
-                  <span>Máx. 26°</span>
+                  <span>
+                    Máx. {weather ? "--" : "26"}°
+                  </span>
                   <i />
-                  <span>Mín. 17°</span>
+                  <span>
+                    Mín. {weather ? "--" : "17"}°
+                  </span>
                 </p>
               </div>
             </div>
@@ -206,25 +430,41 @@ function App() {
               <div className="weather-detail">
                 <Droplets />
                 <span>Umidade</span>
-                <strong>64%</strong>
+                <strong>
+                  {weather
+                    ? `${weather.current.relative_humidity_2m}%`
+                    : "64%"}
+                </strong>
               </div>
 
               <div className="weather-detail">
                 <Wind />
                 <span>Vento</span>
-                <strong>14 km/h</strong>
+                <strong>
+                  {weather
+                    ? `${Math.round(
+                        weather.current.wind_speed_10m,
+                      )} km/h`
+                    : "14 km/h"}
+                </strong>
               </div>
 
               <div className="weather-detail">
                 <ThermometerSun />
                 <span>Sensação</span>
-                <strong>24°</strong>
+                <strong>
+                  {weather
+                    ? `${Math.round(
+                        weather.current.apparent_temperature,
+                      )}°`
+                    : "24°"}
+                </strong>
               </div>
 
               <div className="weather-detail">
                 <CloudRain />
                 <span>Chance de chuva</span>
-                <strong>20%</strong>
+                <strong>{currentRainProbability}%</strong>
               </div>
             </div>
           </article>
@@ -233,31 +473,41 @@ function App() {
             <h2>Previsão para os próximos 7 dias</h2>
 
             <div className="forecast-list">
-              {forecast.map(({ day, max, min, rain, Icon }, index) => (
-                <div
-                  className={`forecast-day ${
-                    index === 0 ? "forecast-day-active" : ""
-                  }`}
-                  key={day}
-                >
-                  <strong>{day}</strong>
+              {forecast.map(
+                ({ day, max, min, rain, Icon }, index) => (
+                  <div
+                    className={`forecast-day ${
+                      index === 0 ? "forecast-day-active" : ""
+                    }`}
+                    key={day}
+                  >
+                    <strong>{day}</strong>
 
-                  <Icon className="forecast-icon" />
+                    <Icon className="forecast-icon" />
 
-                  <span className="forecast-maximum">{max}°</span>
-                  <span className="forecast-minimum">{min}°</span>
+                    <span className="forecast-maximum">
+                      {max}°
+                    </span>
 
-                  <small>
-                    <Droplets />
-                    {rain}%
-                  </small>
-                </div>
-              ))}
+                    <span className="forecast-minimum">
+                      {min}°
+                    </span>
+
+                    <small>
+                      <Droplets />
+                      {rain}%
+                    </small>
+                  </div>
+                ),
+              )}
             </div>
           </article>
         </section>
 
-        <section className="saved-section" id="cidades-salvas">
+        <section
+          className="saved-section"
+          id="cidades-salvas"
+        >
           <header className="saved-section-header">
             <div>
               <span>Cidades favoritas</span>
@@ -277,10 +527,23 @@ function App() {
               <ChevronLeft />
             </button>
 
-            <div className="saved-cities-list" ref={savedListRef}>
+            <div
+              className="saved-cities-list"
+              ref={savedListRef}
+            >
               {savedCities.map(
-                ({ name, country, temperature, max, min, Icon }) => (
-                  <article className="saved-city-card glass-panel" key={name}>
+                ({
+                  name,
+                  country,
+                  temperature,
+                  max,
+                  min,
+                  Icon,
+                }) => (
+                  <article
+                    className="saved-city-card glass-panel"
+                    key={name}
+                  >
                     <header>
                       <div>
                         <h3>{name}</h3>
@@ -327,7 +590,10 @@ function App() {
             </button>
           </div>
 
-          <div className="carousel-indicators" aria-hidden="true">
+          <div
+            className="carousel-indicators"
+            aria-hidden="true"
+          >
             <span className="active" />
             <span />
             <span />
@@ -340,21 +606,3 @@ function App() {
 }
 
 export default App;
-
-interface GeoCodingResult {
-  name: string;
-  country: string;
-  latitude: number;
-  longitude: number;
-}
-
-interface WeatherResponse{
-  current: {
-    temperature_2m: number;
-    relative_humidity_2m: number;
-    apparent_temperature_2m: number;
-    preciptation_probability: number;
-    wind_speed_10m: number;
-    weather_code: number;
-  };
-}
