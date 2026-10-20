@@ -39,53 +39,34 @@ html {
     Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue",
     sans-serif;
   text-align: left;
-  background:
-    radial-gradient(
-      circle at 0% 35%,
-      rgba(23, 255, 141, 0.35),
-      transparent 35%
-    ),
-    radial-gradient(
-      circle at 52% 30%,
-      rgba(20, 120, 255, 0.45),
-      transparent 43%
-    ),
-    radial-gradient(
-      circle at 100% 35%,
-      rgba(255, 157, 218, 0.4),
-      transparent 38%
-    ),
-    linear-gradient(135deg, #03150f, #03152c 55%, #211225);
+  background: linear-gradient(160deg, #02110d 0%, #03152c 52%, #1a0f22 100%);
   isolation: isolate;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Brilho inferior que se move devagar. */
+/* Estrelas discretas ao fundo. */
 .weather-app::before {
   position: fixed;
   z-index: -1;
-  inset: -8%;
+  inset: 0;
   background:
-    radial-gradient(
-      ellipse at 10% 100%,
-      rgba(13, 74, 49, 0.9),
-      transparent 36%
-    ),
-    radial-gradient(
-      ellipse at 55% 100%,
-      rgba(7, 55, 107, 0.85),
-      transparent 45%
-    ),
-    radial-gradient(
-      ellipse at 95% 100%,
-      rgba(107, 39, 96, 0.75),
-      transparent 38%
-    );
+    radial-gradient(1.5px 1.5px at 6% 14%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 14% 38%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 23% 9%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 31% 27%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 42% 17%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 51% 6%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 58% 33%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 67% 12%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 76% 24%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 84% 8%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 91% 31%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 96% 16%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 9% 62%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 88% 58%, rgba(255, 255, 255, 0.5), transparent);
   content: "";
-  filter: blur(25px);
   pointer-events: none;
-  will-change: transform;
-  animation: aurora-drift 24s ease-in-out infinite alternate;
+  animation: twinkle 7s ease-in-out infinite alternate;
 }
 
 /* Resets com especificidade zero para não brigar com as classes abaixo. */
@@ -120,14 +101,71 @@ html {
   outline-offset: 3px;
 }
 
+@property --glass-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 135deg;
+}
+
+/* Liquid glass: vidro translúcido, luz interna e brilho que percorre as bordas. */
 .glass-panel {
-  border: 1px solid rgba(222, 244, 255, 0.38);
-  background: rgba(5, 31, 53, 0.58);
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(8, 30, 52, 0.38);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 20px 50px rgba(0, 0, 0, 0.23);
-  -webkit-backdrop-filter: blur(22px);
-  backdrop-filter: blur(22px);
+    inset 0 1px 1px rgba(255, 255, 255, 0.38),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.1),
+    inset 0 0 24px rgba(255, 255, 255, 0.05),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    0 22px 50px rgba(0, 0, 0, 0.26);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8) brightness(1.08);
+  backdrop-filter: blur(20px) saturate(1.8) brightness(1.08);
+}
+
+/* Borda "especular": um brilho que gira devagar pelo contorno do vidro. */
+.glass-panel::before {
+  position: absolute;
+  z-index: 2;
+  inset: -1px;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--glass-angle),
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.08) 16%,
+    rgba(255, 255, 255, 0.02) 42%,
+    rgba(255, 255, 255, 0.34) 66%,
+    rgba(255, 255, 255, 0.06) 84%,
+    rgba(255, 255, 255, 0.8)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  content: "";
+  pointer-events: none;
+  animation: glass-spin 16s linear infinite;
+}
+
+/* Reflexo suave de luz nos cantos, por baixo do conteúdo. */
+.glass-panel::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(130% 100% at 0% 0%, rgba(255, 255, 255, 0.2), transparent 48%),
+    radial-gradient(90% 80% at 100% 100%, rgba(255, 255, 255, 0.09), transparent 52%);
+  content: "";
+  opacity: 0.8;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
 }
 
 /* Cores dos ícones conforme o tipo de clima (classes geradas pelo lucide). */
@@ -162,7 +200,7 @@ html {
   padding: 0 28px;
   align-items: center;
   border-radius: 22px;
-  background: rgba(5, 31, 53, 0.72);
+  background-color: rgba(8, 30, 52, 0.5);
   animation: rise-in 0.7s var(--ease-out) backwards;
 }
 
@@ -305,7 +343,7 @@ html {
 
 .search-bar:focus-within {
   border-color: rgba(99, 245, 159, 0.75);
-  background: rgba(5, 38, 62, 0.72);
+  background-color: rgba(10, 44, 74, 0.5);
   box-shadow:
     0 0 0 4px rgba(99, 245, 159, 0.14),
     0 20px 50px rgba(0, 0, 0, 0.28);
@@ -810,20 +848,6 @@ html {
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    #000 34px,
-    #000 calc(100% - 34px),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    #000 34px,
-    #000 calc(100% - 34px),
-    transparent 100%
-  );
 }
 
 .saved-cities-list::-webkit-scrollbar {
@@ -836,15 +860,12 @@ html {
   flex: 0 0 calc(25% - 12px);
   padding: 22px;
   border-radius: 20px;
-  background: rgba(6, 36, 62, 0.68);
   cursor: pointer;
   scroll-snap-align: start;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
   transition:
     transform 0.45s var(--ease-out),
     border-color 0.3s ease,
@@ -934,7 +955,7 @@ html {
 
 .saved-city-card:active {
   border-color: rgba(99, 245, 159, 0.7);
-  background: rgba(10, 55, 90, 0.78);
+  background-color: rgba(18, 70, 108, 0.5);
   transform: scale(0.97);
   transition-duration: 0.15s;
 }
@@ -1086,7 +1107,7 @@ html {
 
   .saved-city-card:hover {
     border-color: rgba(99, 245, 159, 0.6);
-    background: rgba(8, 45, 74, 0.8);
+    background-color: rgba(14, 58, 92, 0.42);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.1),
       0 16px 30px rgba(0, 0, 0, 0.3),
@@ -1160,16 +1181,6 @@ html {
 /* --------------------------------------------------------------------------
    Animações
    -------------------------------------------------------------------------- */
-
-@keyframes aurora-drift {
-  from {
-    transform: translate3d(-2%, 0, 0) scale(1);
-  }
-
-  to {
-    transform: translate3d(2%, -3%, 0) scale(1.08);
-  }
-}
 
 @keyframes rise-in {
   from {
@@ -1631,4 +1642,248 @@ html {
   .suggestion-item {
     min-height: 56px;
   }
+}
+
+/* --------------------------------------------------------------------------
+   Aurora boreal (fundo animado)
+   -------------------------------------------------------------------------- */
+
+.aurora {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aurora span {
+  position: absolute;
+  display: block;
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+/* Manchas de luz grandes e macias, nas cores do app. */
+.aurora-glow {
+  width: 70vmax;
+  height: 56vmax;
+  border-radius: 50%;
+}
+
+.aurora-glow-green {
+  top: -14%;
+  left: -20%;
+  background: radial-gradient(closest-side, rgba(23, 255, 141, 0.7), transparent);
+  animation:
+    glow-green 26s ease-in-out infinite alternate,
+    glow-pulse 11s ease-in-out infinite alternate;
+}
+
+.aurora-glow-blue {
+  top: -26%;
+  left: 26%;
+  background: radial-gradient(closest-side, rgba(20, 120, 255, 0.75), transparent);
+  animation:
+    glow-blue 32s ease-in-out infinite alternate,
+    glow-pulse 13s -4s ease-in-out infinite alternate;
+}
+
+.aurora-glow-pink {
+  top: -10%;
+  right: -24%;
+  background: radial-gradient(closest-side, rgba(255, 157, 218, 0.65), transparent);
+  animation:
+    glow-pink 29s ease-in-out infinite alternate,
+    glow-pulse 15s -8s ease-in-out infinite alternate;
+}
+
+/* Cortinas verticais: raios de luz que ondulam e "respiram". */
+.aurora-curtain {
+  -webkit-mask-image:
+    repeating-linear-gradient(90deg, transparent 0, #000 26px, transparent 64px, transparent 90px),
+    linear-gradient(to bottom, transparent 0%, #000 38%, rgba(0, 0, 0, 0.35) 70%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    repeating-linear-gradient(90deg, transparent 0, #000 26px, transparent 64px, transparent 90px),
+    linear-gradient(to bottom, transparent 0%, #000 38%, rgba(0, 0, 0, 0.35) 70%, transparent 100%);
+  mask-composite: intersect;
+  transform-origin: 50% 0;
+}
+
+.aurora-curtain-one {
+  top: 4%;
+  left: -15%;
+  width: 130%;
+  height: 78vh;
+  background: linear-gradient(
+    90deg,
+    #17ff8d 0%,
+    #19c6c1 28%,
+    #1478ff 55%,
+    #8f7bff 78%,
+    #ff9dda 100%
+  );
+  opacity: 0.4;
+  animation:
+    curtain-sway 20s ease-in-out infinite alternate,
+    curtain-breathe 7s ease-in-out infinite alternate;
+}
+
+.aurora-curtain-two {
+  top: 16%;
+  left: -25%;
+  width: 150%;
+  height: 62vh;
+  background: linear-gradient(
+    90deg,
+    #ff9dda 0%,
+    #8f7bff 30%,
+    #1478ff 52%,
+    #17ff8d 100%
+  );
+  -webkit-mask-image:
+    repeating-linear-gradient(90deg, transparent 0, #000 44px, transparent 100px, transparent 140px),
+    linear-gradient(to bottom, transparent 0%, #000 40%, rgba(0, 0, 0, 0.3) 72%, transparent 100%);
+  mask-image:
+    repeating-linear-gradient(90deg, transparent 0, #000 44px, transparent 100px, transparent 140px),
+    linear-gradient(to bottom, transparent 0%, #000 40%, rgba(0, 0, 0, 0.3) 72%, transparent 100%);
+  opacity: 0.28;
+  animation:
+    curtain-sway 28s ease-in-out infinite alternate-reverse,
+    curtain-breathe 9s -3s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  from {
+    opacity: 0.35;
+  }
+
+  to {
+    opacity: 0.9;
+  }
+}
+
+@keyframes glow-green {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(14vw, 10vh, 0) scale(1.25);
+  }
+}
+
+@keyframes glow-blue {
+  from {
+    transform: translate3d(-10vw, 4vh, 0) scale(1.1);
+  }
+
+  to {
+    transform: translate3d(12vw, -8vh, 0) scale(0.9);
+  }
+}
+
+@keyframes glow-pink {
+  from {
+    transform: translate3d(0, 8vh, 0) scale(1.2);
+  }
+
+  to {
+    transform: translate3d(-14vw, -6vh, 0) scale(0.95);
+  }
+}
+
+@keyframes glow-pulse {
+  from {
+    opacity: 0.4;
+  }
+
+  to {
+    opacity: 0.85;
+  }
+}
+
+@keyframes curtain-sway {
+  0% {
+    transform: translate3d(-4%, 0, 0) skewX(-8deg) scaleY(0.92);
+  }
+
+  50% {
+    transform: translate3d(1%, -2%, 0) skewX(3deg) scaleY(1.06);
+  }
+
+  100% {
+    transform: translate3d(5%, 1%, 0) skewX(9deg) scaleY(0.96);
+  }
+}
+
+@keyframes curtain-breathe {
+  from {
+    opacity: 0.2;
+  }
+
+  to {
+    opacity: 0.5;
+  }
+}
+
+@keyframes glass-spin {
+  to {
+    --glass-angle: 495deg;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Liquid glass: ajustes finos em componentes
+   -------------------------------------------------------------------------- */
+
+.search-suggestions {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 0 24px rgba(255, 255, 255, 0.05),
+    0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.carousel-button {
+  -webkit-backdrop-filter: blur(14px) saturate(1.8);
+  backdrop-filter: blur(14px) saturate(1.8);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .saved-city-card:hover::after {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Menos efeitos no celular para manter a fluidez e economizar bateria. */
+  .aurora-curtain-two {
+    display: none;
+  }
+
+  .aurora-glow {
+    width: 120vmax;
+    height: 90vmax;
+  }
+
+  .glass-panel::before {
+    animation: none;
+  }
+}
+/* Acessibilidade: cartões de cidades podem ser acionados pelo teclado. */
+.saved-city-card[role="button"]:focus-visible {
+  outline: 2px solid var(--green, #68f3a3);
+  outline-offset: 4px;
+}
+
+.forecast-empty {
+  grid-column: 1 / -1;
+  padding: 24px 12px;
+  color: var(--text-muted, rgba(235, 245, 255, 0.72));
+  line-height: 1.6;
+  text-align: center;
 }

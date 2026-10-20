@@ -1,4 +1,5 @@
 import {
+  createElement,
   useEffect,
   useRef,
   useState,
@@ -103,17 +104,6 @@ const DEFAULT_CITY: GeocodingResult = {
   longitude: -46.6361,
 };
 
-// Dados de exemplo exibidos apenas enquanto o clima real ainda não carregou.
-const forecast: ForecastDay[] = [
-  { day: "Hoje", max: 26, min: 17, rain: 20, Icon: CloudSun },
-  { day: "Sex", max: 27, min: 18, rain: 10, Icon: Sun },
-  { day: "Sáb", max: 24, min: 16, rain: 60, Icon: CloudRain },
-  { day: "Dom", max: 25, min: 17, rain: 20, Icon: CloudSun },
-  { day: "Seg", max: 27, min: 18, rain: 10, Icon: Sun },
-  { day: "Ter", max: 24, min: 16, rain: 40, Icon: CloudRain },
-  { day: "Qua", max: 23, min: 15, rain: 20, Icon: Cloud },
-];
-
 /* ------------------------------------------------------------------------ */
 /* Utilidades                                                               */
 /* ------------------------------------------------------------------------ */
@@ -122,7 +112,10 @@ function getWeatherIcon(code: number): LucideIcon {
   if (code === 0) return Sun;
   if (code === 1 || code === 2) return CloudSun;
   if (code === 3 || code === 45 || code === 48) return Cloud;
-  if (code >= 51) return CloudRain;
+  // Códigos WMO: garoa/chuva, neve e tempestades têm ícones distintos.
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return CloudRain;
+  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return Cloud;
+  if (code >= 95 && code <= 99) return CloudRain;
   return CloudSun;
 }
 
@@ -381,12 +374,14 @@ function App() {
 
   const trimmedSearch = search.trim();
   const hasQuery = trimmedSearch.length >= MIN_QUERY_LENGTH;
-  const dropdownItems = hasQuery ? suggestions : recentCities;
+  // Só exibe sugestões que correspondem exatamente à busca atual.
+  const currentSuggestions = suggestionsFor === trimmedSearch ? suggestions : [];
+  const dropdownItems = hasQuery ? currentSuggestions : recentCities;
   const showEmpty =
     hasQuery &&
     !suggestionsLoading &&
     suggestionsFor === trimmedSearch &&
-    suggestions.length === 0;
+    currentSuggestions.length === 0;
   const showDropdown =
     isSearchOpen &&
     (dropdownItems.length > 0 ||
@@ -428,7 +423,6 @@ function App() {
 
   useEffect(() => {
     loadCity(initialCityRef.current, { remember: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ---- Atualiza o clima dos favoritos ao abrir o app ---- */
@@ -480,8 +474,8 @@ function App() {
     const query = search.trim();
 
     if (query.length < MIN_QUERY_LENGTH) {
-      setSuggestions([]);
-      setSuggestionsLoading(false);
+      // A lista exibida é derivada da consulta atual, então sugestões antigas
+      // ficam ocultas sem precisar atualizar estado durante o efeito.
       return;
     }
 
@@ -638,8 +632,8 @@ function App() {
     if (!trimmedSearch) return;
 
     // 2) Primeira sugestão já carregada para o que foi digitado.
-    if (suggestionsFor === trimmedSearch && suggestions.length > 0) {
-      selectOption(suggestions[0]);
+    if (suggestionsFor === trimmedSearch && currentSuggestions.length > 0) {
+      selectOption(currentSuggestions[0]);
       return;
     }
 
@@ -778,35 +772,44 @@ function App() {
 
   const currentTemperature = weather
     ? Math.round(weather.current.temperature_2m)
-    : 23;
+    : null;
 
   const currentDescription = weather
     ? getWeatherDescription(weather.current.weather_code)
-    : "Parcialmente nublado";
+    : null;
 
   const currentRainProbability = weather
     ? getCurrentRainProbability(weather)
-    : 20;
+    : null;
 
-  const realForecast: ForecastDay[] = weather
-    ? getForecastDays(weather)
-    : forecast;
+  const realForecast: ForecastDay[] = weather ? getForecastDays(weather) : [];
 
   const cityLabel = [selectedCity.name, selectedCity.country]
     .filter(Boolean)
     .join(", ");
 
-  // O horário retornado já está no fuso da cidade pesquisada.
-  const referenceDate = weather ? new Date(weather.current.time) : new Date();
-
-  const today = referenceDate.toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  // A API retorna a data local da cidade no campo daily.time.
+  // Interpretamos a data em UTC para evitar deslocamento pelo fuso do navegador.
+  const today = weather?.daily.time[0]
+    ? new Date(`${weather.daily.time[0]}T12:00:00Z`).toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+      })
+    : "Carregando data local...";
 
   return (
     <div className="weather-app">
+      {/* Fundo decorativo: aurora boreal animada */}
+      <div className="aurora" aria-hidden="true">
+        <span className="aurora-glow aurora-glow-green" />
+        <span className="aurora-glow aurora-glow-blue" />
+        <span className="aurora-glow aurora-glow-pink" />
+        <span className="aurora-curtain aurora-curtain-one" />
+        <span className="aurora-curtain aurora-curtain-two" />
+      </div>
+
       <header className="topbar glass-panel">
         <a className="brand" href="#inicio">
           <span className="brand-mark">
@@ -977,7 +980,7 @@ function App() {
 
             <div className="current-weather-content">
               <div className="main-weather-icon">
-                <CurrentWeatherIcon />
+                {createElement(CurrentWeatherIcon)}
               </div>
 
               <div className="temperature-information">
@@ -1009,9 +1012,7 @@ function App() {
                 <Droplets />
                 <span>Umidade</span>
                 <strong>
-                  {weather
-                    ? `${weather.current.relative_humidity_2m}%`
-                    : "64%"}
+                  {weather ? `${weather.current.relative_humidity_2m}%` : "—"}
                 </strong>
               </div>
 
@@ -1019,9 +1020,7 @@ function App() {
                 <Wind />
                 <span>Vento</span>
                 <strong>
-                  {weather
-                    ? `${Math.round(weather.current.wind_speed_10m)} km/h`
-                    : "14 km/h"}
+                  {weather ? `${Math.round(weather.current.wind_speed_10m)} km/h` : "—"}
                 </strong>
               </div>
 
@@ -1029,16 +1028,14 @@ function App() {
                 <ThermometerSun />
                 <span>Sensação</span>
                 <strong>
-                  {weather
-                    ? `${Math.round(weather.current.apparent_temperature)}°`
-                    : "24°"}
+                  {weather ? `${Math.round(weather.current.apparent_temperature)}°` : "—"}
                 </strong>
               </div>
 
               <div className="weather-detail">
                 <CloudRain />
                 <span>Chance de chuva</span>
-                <strong>{currentRainProbability}%</strong>
+                <strong>{currentRainProbability === null ? "—" : `${currentRainProbability}%`}</strong>
               </div>
             </div>
           </article>
@@ -1047,6 +1044,11 @@ function App() {
             <h2>Previsão para os próximos 7 dias</h2>
 
             <div className="forecast-list">
+              {!weather && (
+                <p className="forecast-empty" role="status">
+                  {loading ? "Carregando previsão real..." : "A previsão ficará disponível quando o clima for carregado."}
+                </p>
+              )}
               {realForecast.map(({ day, max, min, rain, Icon }, index) => (
                 <div
                   className={`forecast-day ${
@@ -1097,11 +1099,21 @@ function App() {
 
                 return (
                   <article
+                    aria-label={`Ver clima de ${name}`}
                     className={`saved-city-card glass-panel ${
                       isRemoving ? "saved-city-card-removing" : ""
                     }`}
                     key={cityKey(city)}
-                    onClick={() => selectSavedCity(city)}
+                    onClick={() => void selectSavedCity(city)}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        void selectSavedCity(city);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <header>
                       <div>
@@ -1152,12 +1164,13 @@ function App() {
             </button>
           </div>
 
-          <div className="carousel-indicators" aria-hidden="true">
-            <span className="active" />
-            <span />
-            <span />
-            <span />
-          </div>
+          {savedCities.length > 1 && (
+            <div className="carousel-indicators" aria-hidden="true">
+              {savedCities.map((city, index) => (
+                <span key={cityKey(city)} className={index === 0 ? "active" : ""} />
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>
