@@ -1,0 +1,505 @@
+/* ==========================================================================
+   Weather Lab — Aba "Qualidade do ar"
+   Usa as variáveis (--green, --ease-out...) e a classe .glass-panel do App.css.
+   A cor de cada nível chega pela variável --level-color (definida no TSX).
+   ========================================================================== */
+
+.air-page {
+  animation: rise-in 0.7s var(--ease-out) backwards;
+}
+
+/* --------------------------------------------------------------------------
+   Cabeçalho
+   -------------------------------------------------------------------------- */
+
+.air-header {
+  display: flex;
+  margin: 0 16px 22px;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.air-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 650;
+}
+
+.air-meta {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: #c1d0da;
+  font-size: 14px;
+}
+
+.air-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.air-meta svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   Cartões principais (índice atual + próximas 24 horas)
+   -------------------------------------------------------------------------- */
+
+.air-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+  gap: 18px;
+}
+
+.air-current,
+.air-forecast {
+  display: flex;
+  min-height: 340px;
+  padding: 26px;
+  flex-direction: column;
+  border-radius: 24px;
+}
+
+.air-card-title {
+  margin: 0 0 22px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Índice atual: o círculo é o destaque da página. */
+.air-index {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.air-badge {
+  display: grid;
+  width: 132px;
+  height: 132px;
+  flex-shrink: 0;
+  place-items: center;
+  align-content: center;
+  border: 3px solid var(--level-color);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--level-color) 14%, transparent);
+  box-shadow:
+    0 0 36px color-mix(in srgb, var(--level-color) 35%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--level-color) 18%, transparent);
+  transition:
+    border-color 0.4s ease,
+    background 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+.air-badge strong {
+  font-size: 52px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.air-badge span {
+  margin-top: 6px;
+  color: #c1d1dc;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+}
+
+.air-summary {
+  min-width: 0;
+}
+
+.air-summary h3 {
+  margin: 0 0 10px;
+  color: var(--level-color);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.air-advice {
+  display: flex;
+  margin: 0;
+  align-items: flex-start;
+  gap: 10px;
+  color: #d1dfeb;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.air-advice svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--level-color);
+}
+
+/* Escala dos 6 níveis com marcador. */
+.air-scale {
+  margin-top: auto;
+  padding-top: 32px;
+}
+
+.air-scale-track {
+  position: relative;
+  display: flex;
+  height: 10px;
+  gap: 3px;
+}
+
+.air-scale-track > span {
+  flex: 1;
+  border-radius: 6px;
+  opacity: 0.85;
+}
+
+.air-scale-marker {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--level-color);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--level-color) 70%, transparent);
+  transform: translate(-50%, -50%);
+  animation: air-marker-in 0.9s 0.3s var(--spring) backwards;
+}
+
+.air-scale-labels {
+  display: flex;
+  margin-top: 12px;
+  justify-content: space-between;
+  color: #9db0bd;
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Gráfico das próximas 24 horas
+   -------------------------------------------------------------------------- */
+
+.air-chart {
+  display: flex;
+  margin-top: 8px;
+  padding: 0 10px;
+  gap: 4px;
+}
+
+.air-chart-column {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A área tem altura fixa; a barra é posicionada dentro dela. */
+.air-chart-area {
+  position: relative;
+  width: 100%;
+  height: 150px;
+}
+
+.air-chart-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  max-width: 18px;
+  margin-inline: auto;
+  border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--level-color) 45%, transparent),
+    var(--level-color)
+  );
+  transform-origin: 50% 100%;
+  animation: air-bar-grow 0.7s var(--ease-out) backwards;
+}
+
+.air-chart-column small {
+  height: 14px;
+  color: #9db0bd;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.air-forecast-summary {
+  display: flex;
+  margin-top: auto;
+  padding-top: 20px;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  color: #c1d1dc;
+  font-size: 13px;
+}
+
+.air-forecast-summary strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.air-empty {
+  margin: auto 0;
+  color: #a9bbc7;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Poluentes
+   -------------------------------------------------------------------------- */
+
+.air-section-header {
+  display: flex;
+  margin: 30px 16px 14px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.air-section-header h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.air-section-header p {
+  margin: 0;
+  color: #9db0bd;
+  font-size: 13px;
+}
+
+.air-pollutants {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.pollutant-card {
+  display: flex;
+  padding: 20px 22px;
+  flex-direction: column;
+  border-radius: 20px;
+}
+
+.pollutant-card > header {
+  display: flex;
+  margin-bottom: 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pollutant-symbol {
+  padding: 5px 12px;
+  border: 1px solid color-mix(in srgb, var(--level-color) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--level-color) 16%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pollutant-level {
+  color: var(--level-color);
+  font-size: 12px;
+  text-align: right;
+}
+
+.pollutant-card > strong {
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.pollutant-card > strong small {
+  margin-left: 6px;
+  color: #9db0bd;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.pollutant-card > p {
+  margin: 8px 0 0;
+  color: #c1d1dc;
+  font-size: 13px;
+}
+
+.air-footnote {
+  max-width: 80ch;
+  margin: 22px 8px 0;
+  color: #9db0bd;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+   Carregando e erro
+   -------------------------------------------------------------------------- */
+
+.air-status {
+  display: flex;
+  width: fit-content;
+  margin: 0 auto 24px;
+  padding: 10px 18px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(144, 207, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(21, 70, 122, 0.35);
+  color: #cfe8ff;
+  font-size: 14px;
+  animation: pop-in 0.45s var(--spring) backwards;
+}
+
+.air-status::before {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 2px solid rgba(144, 207, 255, 0.3);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  content: "";
+  animation: spin 0.8s linear infinite;
+}
+
+.air-error {
+  display: flex;
+  padding: 28px;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  border-radius: 24px;
+  color: #ffc7d1;
+  text-align: center;
+}
+
+.air-error p {
+  max-width: 46ch;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.air-error button {
+  display: inline-flex;
+  padding: 10px 18px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(101, 248, 165, 0.5);
+  border-radius: 14px;
+  background: rgba(3, 37, 51, 0.5);
+  color: #65f8a5;
+  transition: transform 0.3s var(--spring);
+}
+
+.air-error button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.air-error button:active {
+  transform: scale(0.94);
+}
+
+/* --------------------------------------------------------------------------
+   Animações (o resto — rise-in, pop-in, spin — vem do App.css)
+   -------------------------------------------------------------------------- */
+
+@keyframes air-bar-grow {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes air-marker-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .air-chart-column:hover .air-chart-bar {
+    filter: brightness(1.25);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Tablet e celular
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .air-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .air-pollutants {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .air-header {
+    margin-inline: 4px;
+  }
+
+  .air-header h1 {
+    font-size: 24px;
+  }
+
+  .air-current,
+  .air-forecast {
+    min-height: auto;
+    padding: 20px;
+  }
+
+  .air-index {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .air-advice {
+    text-align: left;
+  }
+
+  .air-chart {
+    padding: 0 4px;
+    gap: 2px;
+  }
+
+  .air-pollutants {
+    gap: 12px;
+  }
+
+  .air-section-header,
+  .air-footnote {
+    margin-inline: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .air-pollutants {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1853,6 +1853,1075 @@ html {
     0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
+/* ===== Navegação lateral WeatherNow ===== */
+
+.weather-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  padding: 28px 18px 20px;
+  background: rgba(7, 19, 14, 0.94);
+  border-right: 1px solid rgba(151, 255, 192, 0.12);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 42px;
+  color: #f0fff5;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.sidebar-brand-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  color: #8cf5b2;
+  background: rgba(77, 220, 139, 0.13);
+  border: 1px solid rgba(140, 245, 178, 0.2);
+  border-radius: 14px;
+}
+
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 17px;
+  letter-spacing: 1.6px;
+  line-height: 1.2;
+}
+
+.sidebar-brand-text span {
+  color: #83eeb0;
+  font-weight: 700;
+}
+
+.sidebar-caption {
+  padding: 0 10px;
+  margin-bottom: 12px;
+  color: #789889;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.sidebar-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  color: #a9c0b3;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+.sidebar-link:hover {
+  color: #f0fff5;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.sidebar-link-active {
+  color: #eafff0;
+  background: linear-gradient(
+    110deg,
+    rgba(49, 174, 101, 0.23),
+    rgba(30, 110, 92, 0.12)
+  );
+  border-color: rgba(126, 242, 168, 0.17);
+}
+
+.sidebar-link-active svg {
+  color: #83eeb0;
+}
+
+.sidebar-link:focus-visible,
+.sidebar-brand:focus-visible {
+  outline: 2px solid #83eeb0;
+  outline-offset: 3px;
+}
+
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px 10px;
+  margin-top: auto;
+  color: #83eeb0;
+  background: rgba(59, 139, 91, 0.1);
+  border: 1px solid rgba(126, 242, 168, 0.1);
+  border-radius: 12px;
+}
+
+.sidebar-footer div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-footer strong {
+  color: #eafff0;
+  font-size: 12px;
+}
+
+.sidebar-footer span {
+  color: #94b3a1;
+  font-size: 10px;
+}
+
+/* O conteúdo existente abre espaço para a navegação. */
+.weather-app {
+  min-height: 100vh;
+}
+
+/* ========================================
+   WEATHER LAB — LIQUID GLASS NAVIGATION
+   ======================================== */
+
+.glass-sidebar {
+  --glass-green: 139, 245, 180;
+
+  position: fixed;
+  top: 24px;
+  bottom: 24px;
+  left: 24px;
+
+  z-index: 100;
+
+  display: flex;
+  flex-direction: column;
+
+  width: 248px;
+  padding: 22px 16px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.075),
+      rgba(255, 255, 255, 0.015) 48%,
+      rgba(100, 230, 165, 0.035)
+    ),
+    rgba(8, 20, 17, 0.66);
+
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 25px;
+
+  box-shadow:
+    0 24px 65px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.glass-sidebar:hover {
+  border-color: rgba(var(--glass-green), 0.2);
+
+  box-shadow:
+    0 28px 75px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* ========================================
+   MARCA
+   ======================================== */
+
+.glass-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  padding: 10px 8px 24px;
+
+  color: #f2fff7;
+
+  text-align: left;
+
+  background: transparent;
+  border: none;
+
+  cursor: pointer;
+}
+
+.glass-brand-icon {
+  display: grid;
+  place-items: center;
+
+  width: 46px;
+  height: 46px;
+
+  flex-shrink: 0;
+
+  color: #a2ffc4;
+
+  background:
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(255, 255, 255, 0.19),
+      transparent 55%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(102, 236, 157, 0.19),
+      rgba(66, 143, 216, 0.12)
+    );
+
+  border: 1px solid rgba(166, 255, 197, 0.23);
+  border-radius: 16px;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 8px 24px rgba(44, 190, 117, 0.08);
+
+  transition:
+    transform 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.glass-brand:hover .glass-brand-icon {
+  transform: translateY(-2px) rotate(-3deg);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 10px 28px rgba(44, 190, 117, 0.16);
+}
+
+.glass-brand-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  font-size: 16px;
+  line-height: 1.15;
+  letter-spacing: 1.8px;
+}
+
+.glass-brand-name strong {
+  font-weight: 750;
+}
+
+.glass-brand-name span {
+  color: #8df4b4;
+  font-weight: 750;
+}
+
+/* ========================================
+   TÍTULO DA NAVEGAÇÃO
+   ======================================== */
+
+.glass-sidebar-caption {
+  padding: 10px 10px 12px;
+
+  color: rgba(211, 232, 219, 0.48);
+
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+}
+
+/* ========================================
+   NAVEGAÇÃO EM BLOCOS
+   ======================================== */
+
+.glass-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.glass-nav-item {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 49px;
+  padding: 7px 11px;
+
+  color: rgba(225, 240, 230, 0.72);
+
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+
+  text-align: left;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.045),
+      rgba(255, 255, 255, 0.012)
+    );
+
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  border-radius: 15px;
+
+  cursor: pointer;
+
+  transform: perspective(800px) rotateX(0deg);
+
+  transition:
+    transform 220ms ease,
+    color 220ms ease,
+    background 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.glass-nav-item:hover {
+  color: #f3fff7;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.105),
+      rgba(255, 255, 255, 0.025)
+    );
+
+  border-color: rgba(255, 255, 255, 0.13);
+
+  transform:
+    perspective(800px)
+    translateY(-2px)
+    rotateX(2deg);
+
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.glass-nav-icon {
+  display: grid;
+  place-items: center;
+
+  width: 32px;
+  height: 32px;
+
+  flex-shrink: 0;
+
+  color: rgba(204, 229, 211, 0.7);
+
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.045);
+
+  border-radius: 10px;
+
+  transition:
+    color 220ms ease,
+    background 220ms ease,
+    border-color 220ms ease;
+}
+
+.glass-nav-label {
+  flex: 1;
+}
+
+/* Página selecionada */
+
+.glass-nav-item.is-active {
+  color: #effff4;
+
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(139, 245, 180, 0.15),
+      transparent 65%
+    ),
+    linear-gradient(
+      125deg,
+      rgba(81, 207, 133, 0.13),
+      rgba(67, 157, 194, 0.055)
+    );
+
+  border-color: rgba(139, 245, 180, 0.23);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    0 6px 20px rgba(33, 170, 104, 0.055);
+}
+
+.glass-nav-item.is-active .glass-nav-icon {
+  color: #a4ffc4;
+
+  background: rgba(103, 232, 150, 0.11);
+
+  border-color: rgba(139, 245, 180, 0.18);
+}
+
+.glass-nav-item.is-active:hover {
+  transform: translateY(-2px);
+}
+
+.glass-nav-indicator {
+  width: 5px;
+  height: 5px;
+
+  flex-shrink: 0;
+
+  background: #9effbd;
+  border-radius: 50%;
+
+  box-shadow: 0 0 12px rgba(139, 245, 180, 0.6);
+}
+
+/* Acessibilidade do teclado */
+
+.glass-nav-item:focus-visible,
+.glass-brand:focus-visible {
+  outline: 2px solid #9effbd;
+  outline-offset: 3px;
+}
+
+/* ========================================
+   RODAPÉ DA NAVEGAÇÃO
+   ======================================== */
+
+.glass-sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  margin-top: auto;
+  padding: 13px 10px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(139, 245, 180, 0.075),
+      rgba(80, 165, 220, 0.025)
+    );
+
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 16px;
+}
+
+.glass-footer-orb {
+  display: grid;
+  place-items: center;
+
+  width: 38px;
+  height: 38px;
+
+  flex-shrink: 0;
+
+  color: #a2ffc4;
+
+  background: rgba(111, 230, 153, 0.09);
+
+  border: 1px solid rgba(139, 245, 180, 0.13);
+  border-radius: 12px;
+}
+
+.glass-sidebar-footer div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.glass-sidebar-footer strong {
+  color: #edfff3;
+  font-size: 12px;
+}
+
+.glass-sidebar-footer div span {
+  color: rgba(213, 234, 219, 0.58);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+
+
+/* ========================================
+   RESPONSIVIDADE
+   ======================================== */
+
+@media (max-width: 1099px) {
+  .glass-sidebar {
+    position: sticky;
+    top: 12px;
+    bottom: auto;
+    left: auto;
+
+    width: auto;
+
+    margin: 12px;
+    padding: 12px;
+
+    border-radius: 20px;
+  }
+
+  .glass-brand {
+    padding: 4px 5px 12px;
+  }
+
+  .glass-brand-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .glass-sidebar-caption,
+  .glass-sidebar-footer {
+    display: none;
+  }
+
+  .glass-navigation {
+    flex-direction: row;
+    gap: 7px;
+
+    overflow-x: auto;
+
+    padding: 3px 2px 5px;
+
+    scrollbar-width: thin;
+  }
+
+  .glass-nav-item {
+    flex: 0 0 auto;
+    width: auto;
+
+    min-height: 43px;
+    padding: 5px 9px;
+  }
+
+  .glass-nav-icon {
+    width: 29px;
+    height: 29px;
+  }
+
+  .glass-nav-label {
+    white-space: nowrap;
+  }
+}
+
+/* ========================================
+   WEATHER LAB — GLASS TILT CARDS
+   ======================================== */
+
+.tilt-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --light-x: 50%;
+  --light-y: 50%;
+
+  position: relative;
+
+  isolation: isolate;
+
+  transform:
+    perspective(1000px)
+    rotateX(var(--tilt-x))
+    rotateY(var(--tilt-y))
+    translateZ(0);
+
+  transform-style: preserve-3d;
+
+  transition:
+    transform 180ms ease-out,
+    filter 220ms ease;
+
+  will-change: transform;
+}
+
+.tilt-card-content {
+  position: relative;
+
+  z-index: 1;
+
+  height: 100%;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.075),
+      rgba(255, 255, 255, 0.018)
+    ),
+    rgba(15, 27, 25, 0.58);
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: inherit;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 12px 35px rgba(0, 0, 0, 0.12);
+
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.tilt-card-highlight {
+  position: absolute;
+
+  z-index: 2;
+  inset: 0;
+
+  border-radius: inherit;
+
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      circle at var(--light-x) var(--light-y),
+      rgba(170, 255, 207, 0.13),
+      rgba(113, 190, 255, 0.045) 28%,
+      transparent 65%
+    );
+
+  opacity: 0;
+
+  transition: opacity 220ms ease;
+}
+
+.tilt-card[data-tilted="true"] {
+  filter: drop-shadow(
+    0 15px 22px rgba(0, 0, 0, 0.13)
+  );
+}
+
+.tilt-card[data-tilted="true"] .tilt-card-content {
+  border-color: rgba(171, 255, 201, 0.25);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.17),
+    0 18px 40px rgba(0, 0, 0, 0.17);
+}
+
+.tilt-card[data-tilted="true"] .tilt-card-highlight {
+  opacity: 1;
+}
+
+
+/* ========================================
+   Navegação Liquid Glass (dock lateral)
+   ========================================
+
+   COMO FUNCIONA A ABERTURA:
+   - O painel de fundo (.liquid-dock) tem LARGURA FIXA: 74px fechado
+     (48px do botão + 12px de padding de cada lado + 2px de borda)
+     e 216px aberto (190px do botão + 26px de padding/borda).
+   - Quem abre e fecha é o PAINEL INTEIRO (:hover no .liquid-dock),
+     e não cada botão separadamente. Assim, ao passar de "Início"
+     para "Salvos", o mouse continua dentro do painel e ele não fecha.
+   - Se mudar o tamanho dos botões, ajuste as larguras de acordo.
+*/
+
+.liquid-dock {
+  position: fixed;
+  z-index: 1000;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 13px;
+  width: 74px;
+  padding: 12px;
+  border: 1px solid rgba(220, 255, 242, 0.2);
+  border-radius: 28px;
+  background: rgba(9, 28, 37, 0.55);
+  backdrop-filter: blur(28px) saturate(155%);
+  -webkit-backdrop-filter: blur(28px) saturate(155%);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  transition: width 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dock-brand,
+.dock-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-shrink: 0;
+  height: 48px;
+  width: 48px;
+  padding: 0 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 17px;
+  color: #e5f8f1;
+  background: rgba(255, 255, 255, 0.055);
+  cursor: pointer;
+  transition:
+    width 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.dock-brand {
+  justify-content: center;
+  color: #78f5b8;
+  background: rgba(53, 218, 145, 0.12);
+  border-color: rgba(89, 245, 176, 0.16);
+}
+
+.dock-items {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.dock-item span {
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    opacity 150ms ease,
+    max-width 250ms ease;
+}
+
+/* Só o destaque visual (cor/borda/sombra) fica por botão. */
+.dock-item:hover,
+.dock-item:focus-visible {
+  background: rgba(119, 244, 190, 0.14);
+  border-color: rgba(119, 244, 190, 0.3);
+  box-shadow: 0 5px 22px rgba(48, 226, 155, 0.1);
+}
+
+.dock-item-active {
+  color: #86ffc2;
+  background: rgba(72, 230, 157, 0.14);
+  border-color: rgba(101, 246, 183, 0.24);
+}
+
+/* Abertura do painel (somente telas maiores que o celular).
+   As regras ficam separadas porque, se o navegador não entender
+   o :has(), ele ignoraria a regra inteira, inclusive o :hover. */
+@media (min-width: 761px) {
+  /* Mouse em qualquer lugar do painel: painel e botões abrem juntos. */
+  .liquid-dock:hover {
+    width: 216px;
+  }
+
+  .liquid-dock:hover .dock-item {
+    width: 190px;
+  }
+
+  .liquid-dock:hover .dock-item span {
+    opacity: 1;
+    max-width: 145px;
+  }
+
+  /* Navegação pelo teclado (Tab): também abre o painel. */
+  .liquid-dock:has(.dock-item:focus-visible) {
+    width: 216px;
+  }
+
+  .liquid-dock:has(.dock-item:focus-visible) .dock-item {
+    width: 190px;
+  }
+
+  .liquid-dock:has(.dock-item:focus-visible) .dock-item span {
+    opacity: 1;
+    max-width: 145px;
+  }
+}
+
+.dock-item svg,
+.dock-brand svg {
+  flex-shrink: 0;
+}
+
+.dock-menu-button {
+  display: none;
+}
+
+/* Evita que o painel principal fique atrás da navegação */
+.dashboard {
+  margin-left: 88px;
+}
+
+
+/* Logo flutuante do Weather Lab — independente da navegação */
+.weather-brand-floating {
+  position: fixed;
+  z-index: 1002;
+  top: 22px;
+  left: 22px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 50px;
+  height: 50px;
+  padding: 0 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 1px solid rgba(220, 255, 242, 0.22);
+  border-radius: 18px;
+  color: #e5f8f1;
+  background: rgba(9, 28, 37, 0.55);
+  backdrop-filter: blur(24px) saturate(155%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  transition:
+    width 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-radius 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.weather-brand-floating:hover,
+.weather-brand-floating:focus-visible {
+  width: 174px;
+  border-radius: 18px;
+  background: rgba(9, 35, 43, 0.76);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.22),
+    0 0 22px rgba(76, 232, 164, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.16);
+}
+
+.weather-brand-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 25px;
+  color: #76f4b7;
+}
+
+.weather-brand-label {
+  opacity: 0;
+  transform: translateX(-5px);
+  color: #eafbf4;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  transition: opacity 160ms ease, transform 220ms ease;
+}
+
+.weather-brand-floating:hover .weather-brand-label,
+.weather-brand-floating:focus-visible .weather-brand-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (max-width: 760px) {
+  .weather-brand-floating {
+    top: 12px;
+    left: 12px;
+    width: 44px;
+    height: 44px;
+    padding: 0 9px;
+    border-radius: 15px;
+  }
+
+  .weather-brand-floating:hover,
+  .weather-brand-floating:focus-visible {
+    width: 158px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weather-brand-floating,
+  .weather-brand-label {
+    transition: none;
+  }
+}
+
+
+/* Tablets e celulares */
+@media (max-width: 760px) {
+  .liquid-dock {
+    top: auto;
+    left: 50%;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    padding: 9px;
+    border-radius: 23px;
+  }
+
+  .dock-brand {
+    display: none;
+  }
+
+  .dock-items {
+    flex-direction: row;
+    gap: 7px;
+  }
+
+  .dock-item,
+  .dock-item:hover,
+  .dock-item:focus-visible,
+  .dock-item-active {
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 15px;
+  }
+
+  .dock-item span {
+    display: none;
+  }
+
+  .dock-menu-button {
+    display: flex;
+  }
+
+  .dock-menu-button:hover,
+  .dock-menu-button:focus-visible {
+    width: 44px;
+  }
+
+  .dashboard {
+    margin-left: 0;
+    padding-bottom: 100px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-dock,
+  .dock-item,
+  .dock-item span,
+  .dock-brand {
+    transition: none;
+  }
+}
+
+
+/* Dispositivos sem mouse */
+
+@media (hover: none), (pointer: coarse) {
+  .tilt-card {
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .tilt-card-highlight {
+    display: none;
+  }
+}
+
+/* Acessibilidade */
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt-card,
+  .tilt-card-content,
+  .tilt-card-highlight {
+    transition: none !important;
+    transform: none !important;
+    will-change: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-sidebar,
+  .glass-brand-icon,
+  .glass-nav-item,
+  .glass-nav-icon {
+    transition: none !important;
+  }
+
+  .glass-nav-item:hover,
+  .glass-nav-item.is-active:hover {
+    transform: none;
+  }
+}
+
+@media (min-width: 1100px) {
+  .weather-app {
+    padding-left: 250px;
+  }
+}
+
+@media (max-width: 1099px) {
+  .weather-sidebar {
+    position: sticky;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    padding: 12px 16px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(151, 255, 192, 0.12);
+  }
+
+  .sidebar-brand {
+    margin-bottom: 12px;
+  }
+
+  .sidebar-caption,
+  .sidebar-footer {
+    display: none;
+  }
+
+  .sidebar-navigation {
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .sidebar-link {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 42px;
+    padding: 0 12px;
+  }
+
+  .sidebar-link span {
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-link {
+    transition: none;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .saved-city-card:hover::after {
     opacity: 1;
@@ -1886,4 +2955,26 @@ html {
   color: var(--text-muted, rgba(235, 245, 255, 0.72));
   line-height: 1.6;
   text-align: center;
+}
+
+/* Mantém a área da sidebar estável durante a navegação */
+@media (min-width: 1100px) {
+  .glass-sidebar {
+    isolation: isolate;
+  }
+
+  .glass-sidebar:hover,
+  .glass-sidebar:focus-within {
+    border-color: rgba(139, 245, 180, 0.2);
+  }
+
+  .glass-navigation {
+    position: relative;
+    width: 100%;
+  }
+
+  .glass-nav-item {
+    position: relative;
+    flex-shrink: 0;
+  }
 }

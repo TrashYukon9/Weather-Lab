@@ -8,6 +8,12 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+
+import type { WeatherPage } from "./components/Sidebar";
+
+import AirQualityPage from "./components/AirQualityPage";
+import ForecastPage from "./components/ForecastPage";
+
 import {
   Bookmark,
   ChevronLeft,
@@ -24,28 +30,47 @@ import {
   Sun,
   ThermometerSun,
   Wind,
+  CalendarDays,
+  Map,
+  Settings,
+  Menu,
+  X,
   type LucideIcon,
 } from "lucide-react";
+
 import "./App.css";
 
 interface ForecastDay {
   day: string;
+
   max: number;
+
   min: number;
+
   rain: number;
+
   Icon: LucideIcon;
 }
 
 interface SavedCity {
   name: string;
+
   country: string;
+
   admin1?: string;
+
   temperature: number;
+
   max: number;
+
   min: number;
+
   Icon: LucideIcon;
+
   weatherCode?: number;
+
   latitude?: number;
+
   longitude?: number;
 }
 
@@ -56,92 +81,144 @@ type CityWeatherSummary = Pick<
 
 interface GeocodingResult {
   name: string;
+
   country: string;
+
   admin1?: string;
+
   latitude: number;
+
   longitude: number;
 }
 
 interface WeatherResponse {
   current: {
     time: string;
+
     temperature_2m: number;
+
     relative_humidity_2m: number;
+
     apparent_temperature: number;
+
     wind_speed_10m: number;
+
     weather_code: number;
   };
+
   hourly: {
     time: string[];
+
     precipitation_probability: number[];
   };
+
   daily: {
     time: string[];
+
     temperature_2m_max: number[];
+
     temperature_2m_min: number[];
+
     precipitation_probability_max: number[];
+
     weather_code: number[];
   };
 }
 
 const FAVORITES_KEY = "weather-lab-favorites";
+
 const OLD_FAVORITES_KEY = "weather-lab-saved-cities";
+
 const RECENT_KEY = "weather-lab-recent";
+
 const LAST_CITY_KEY = "weather-lab-last-city";
 
 const MAX_RECENT_CITIES = 5;
+
 const MAX_SUGGESTIONS = 5;
+
 const MIN_QUERY_LENGTH = 3; // a API só faz busca aproximada a partir de 3 letras
+
 const SUGGESTION_DELAY = 300;
+
 const REMOVE_ANIMATION_MS = 280;
 
 // Cidade exibida na primeira vez que o app abre.
+
 const DEFAULT_CITY: GeocodingResult = {
   name: "São Paulo",
+
   country: "Brasil",
+
   admin1: "São Paulo",
+
   latitude: -23.5475,
+
   longitude: -46.6361,
 };
 
 /* ------------------------------------------------------------------------ */
+
 /* Utilidades                                                               */
+
 /* ------------------------------------------------------------------------ */
 
 function getWeatherIcon(code: number): LucideIcon {
   if (code === 0) return Sun;
+
   if (code === 1 || code === 2) return CloudSun;
+
   if (code === 3 || code === 45 || code === 48) return Cloud;
+
   // Códigos WMO: garoa/chuva, neve e tempestades têm ícones distintos.
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return CloudRain;
+
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82))
+    return CloudRain;
+
   if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return Cloud;
+
   if (code >= 95 && code <= 99) return CloudRain;
+
   return CloudSun;
 }
 
 function getWeatherDescription(code: number): string {
   if (code === 0) return "Céu limpo";
+
   if (code === 1) return "Predominantemente limpo";
+
   if (code === 2) return "Parcialmente nublado";
+
   if (code === 3) return "Nublado";
+
   if (code === 45 || code === 48) return "Neblina";
 
   if (code >= 51 && code <= 57) return "Garoa";
+
   if (code >= 61 && code <= 67) return "Chuva";
+
   if (code >= 71 && code <= 77) return "Neve";
+
   if (code >= 80 && code <= 82) return "Pancadas de chuva";
+
   if (code >= 85 && code <= 86) return "Pancadas de neve";
+
   if (code >= 95) return "Tempestade";
 
   return "Condição meteorológica variável";
 }
 
 // Identifica a cidade pelas coordenadas (distingue cidades homônimas).
+
 // Favoritos antigos, sem coordenadas, usam nome + país.
+
 function cityKey(city: {
   name: string;
+
   country: string;
+
   latitude?: number;
+
   longitude?: number;
 }): string {
   if (city.latitude !== undefined && city.longitude !== undefined) {
@@ -152,25 +229,33 @@ function cityKey(city: {
 }
 
 // Ex.: "Minas Gerais, Brasil" (omite o estado quando é igual ao nome).
+
 function formatPlace(city: {
   name: string;
+
   country: string;
+
   admin1?: string;
 }): string {
   return [
     city.admin1 && city.admin1 !== city.name ? city.admin1 : "",
+
     city.country,
   ]
+
     .filter(Boolean)
+
     .join(", ");
 }
 
 function readStorage(key: string): unknown {
   try {
     const raw = localStorage.getItem(key);
+
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
     console.error(`Erro ao ler ${key}:`, error);
+
     return null;
   }
 }
@@ -206,6 +291,7 @@ function loadRecentCities(): GeocodingResult[] {
 
 function loadLastCity(): GeocodingResult | null {
   const data = readStorage(LAST_CITY_KEY);
+
   return isValidCity(data) ? data : null;
 }
 
@@ -223,21 +309,28 @@ function loadSavedCities(): SavedCity[] {
 
     return cities.map((city) => ({
       ...city,
+
       Icon: getWeatherIcon(city.weatherCode ?? 2),
     }));
   } catch (error) {
     console.error("Erro ao carregar favoritos:", error);
+
     return [];
   }
 }
 
 // Resumo do clima usado nos cartões de cidades salvas.
+
 function getCitySummary(data: WeatherResponse): CityWeatherSummary {
   return {
     temperature: Math.round(data.current.temperature_2m),
+
     max: Math.round(data.daily.temperature_2m_max[0] ?? 0),
+
     min: Math.round(data.daily.temperature_2m_min[0] ?? 0),
+
     Icon: getWeatherIcon(data.current.weather_code),
+
     weatherCode: data.current.weather_code,
   };
 }
@@ -250,7 +343,9 @@ function getCurrentRainProbability(data: WeatherResponse): number {
   }
 
   // O horário atual vem em intervalos de 15 min; busca a hora cheia.
+
   const currentHour = data.current.time.slice(0, 13);
+
   const nextIndex = data.hourly.time.findIndex(
     (time) => time.slice(0, 13) >= currentHour,
   );
@@ -263,10 +358,13 @@ function getCurrentRainProbability(data: WeatherResponse): number {
 function getForecastDays(data: WeatherResponse): ForecastDay[] {
   return data.daily.time.map((date, index) => {
     const weekday = new Date(`${date}T12:00:00Z`)
+
       .toLocaleDateString("pt-BR", {
         weekday: "short",
+
         timeZone: "UTC",
       })
+
       .replace(".", "");
 
     return {
@@ -274,27 +372,36 @@ function getForecastDays(data: WeatherResponse): ForecastDay[] {
         index === 0
           ? "Hoje"
           : weekday.charAt(0).toUpperCase() + weekday.slice(1),
+
       max: Math.round(data.daily.temperature_2m_max[index]),
+
       min: Math.round(data.daily.temperature_2m_min[index]),
+
       rain: data.daily.precipitation_probability_max[index] ?? 0,
+
       Icon: getWeatherIcon(data.daily.weather_code[index]),
     };
   });
 }
 
 /* ------------------------------------------------------------------------ */
+
 /* API (Open-Meteo)                                                         */
+
 /* ------------------------------------------------------------------------ */
 
 async function searchCities(
   query: string,
+
   count = MAX_SUGGESTIONS,
+
   signal?: AbortSignal,
 ): Promise<GeocodingResult[]> {
   const response = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+    `https\://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
       query,
     )}&count=${count}&language=pt&format=json`,
+
     { signal },
   );
 
@@ -307,14 +414,19 @@ async function searchCities(
   const results: GeocodingResult[] = (data.results ?? []).map(
     (result: GeocodingResult) => ({
       name: result.name,
+
       country: result.country ?? "",
+
       admin1: result.admin1,
+
       latitude: result.latitude,
+
       longitude: result.longitude,
     }),
   );
 
   // Remove duplicatas (mesma localização).
+
   return results.filter(
     (city, index) =>
       results.findIndex((other) => cityKey(other) === cityKey(city)) === index,
@@ -323,10 +435,11 @@ async function searchCities(
 
 async function getWeather(
   latitude: number,
+
   longitude: number,
 ): Promise<WeatherResponse> {
   const response = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&hourly=precipitation_probability&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&forecast_days=7&timezone=auto`,
+    `https\://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&hourly=precipitation_probability&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&forecast_days=7&timezone=auto`,
   );
 
   if (!response.ok) {
@@ -337,75 +450,131 @@ async function getWeather(
 }
 
 /* ------------------------------------------------------------------------ */
+
 /* Componente                                                               */
+
 /* ------------------------------------------------------------------------ */
 
 function App() {
   // Busca e sugestões
+
   const [search, setSearch] = useState("");
+
   const [suggestions, setSuggestions] = useState<GeocodingResult[]>([]);
+
   const [suggestionsFor, setSuggestionsFor] = useState("");
+
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
   const [activeIndex, setActiveIndex] = useState(-1);
+
   const [recentCities, setRecentCities] = useState<GeocodingResult[]>(() =>
     loadRecentCities(),
   );
 
+  const [activePage, setActivePage] = useState<WeatherPage>("inicio");
+
+  const [dockMenuOpen, setDockMenuOpen] = useState(false);
+
   // Clima e favoritos
+
   const [selectedCity, setSelectedCity] = useState<GeocodingResult>(
     () => loadLastCity() ?? DEFAULT_CITY,
   );
+
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
+
   const [savedCities, setSavedCities] = useState<SavedCity[]>(() =>
     loadSavedCities(),
   );
+
   const [removingKeys, setRemovingKeys] = useState<string[]>([]);
+
   const [loading, setLoading] = useState(true);
+
   const [errorMessage, setErrorMessage] = useState("");
 
   const inputRef = useRef<HTMLInputElement>(null);
+
   const savedListRef = useRef<HTMLDivElement>(null);
-  const suggestionCache = useRef(new Map<string, GeocodingResult[]>());
+
+  const suggestionCache = useRef(
+    new globalThis.Map<string, GeocodingResult[]>(),
+  );
+
   const requestIdRef = useRef(0);
+
   const initialCityRef = useRef(selectedCity);
 
   /* ---- Valores derivados ---- */
 
   const trimmedSearch = search.trim();
+
   const hasQuery = trimmedSearch.length >= MIN_QUERY_LENGTH;
+
   // Só exibe sugestões que correspondem exatamente à busca atual.
-  const currentSuggestions = suggestionsFor === trimmedSearch ? suggestions : [];
+
+  const currentSuggestions =
+    suggestionsFor === trimmedSearch ? suggestions : [];
+
   const dropdownItems = hasQuery ? currentSuggestions : recentCities;
+
   const showEmpty =
     hasQuery &&
     !suggestionsLoading &&
     suggestionsFor === trimmedSearch &&
     currentSuggestions.length === 0;
+
   const showDropdown =
     isSearchOpen &&
     (dropdownItems.length > 0 ||
       (hasQuery && (suggestionsLoading || showEmpty)));
 
   const selectedKey = cityKey(selectedCity);
+
   const savedKeys = new Set(savedCities.map(cityKey));
+
   const isFavorite =
     savedKeys.has(selectedKey) && !removingKeys.includes(selectedKey);
+
+  useEffect(() => {
+    const target =
+      activePage === "favoritos"
+        ? document.getElementById("cidades-salvas")
+        : null;
+
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [activePage]);
 
   /* ---- Persistência ---- */
 
   useEffect(() => {
     writeStorage(
       FAVORITES_KEY,
+
       savedCities.map((city) => ({
         name: city.name,
+
         country: city.country,
+
         admin1: city.admin1,
+
         temperature: city.temperature,
+
         max: city.max,
+
         min: city.min,
+
         weatherCode: city.weatherCode,
+
         latitude: city.latitude,
+
         longitude: city.longitude,
       })),
     );
@@ -432,7 +601,8 @@ function App() {
 
     async function refreshSavedCities() {
       const citiesToUpdate = loadSavedCities();
-      const updates = new Map<string, CityWeatherSummary>();
+
+      const updates = new globalThis.Map<string, CityWeatherSummary>();
 
       await Promise.all(
         citiesToUpdate.map(async (city) => {
@@ -442,6 +612,7 @@ function App() {
 
           try {
             const data = await getWeather(city.latitude, city.longitude);
+
             updates.set(cityKey(city), getCitySummary(data));
           } catch (error) {
             console.error(`Erro ao atualizar ${city.name}:`, error);
@@ -452,10 +623,13 @@ function App() {
       if (cancelled || updates.size === 0) return;
 
       // Mescla com a lista atual para não perder favoritos adicionados
+
       // enquanto a atualização estava em andamento.
+
       setSavedCities((currentCities) =>
         currentCities.map((city) => {
           const update = updates.get(cityKey(city));
+
           return update ? { ...city, ...update } : city;
         }),
       );
@@ -475,17 +649,23 @@ function App() {
 
     if (query.length < MIN_QUERY_LENGTH) {
       // A lista exibida é derivada da consulta atual, então sugestões antigas
+
       // ficam ocultas sem precisar atualizar estado durante o efeito.
+
       return;
     }
 
     const cacheKey = query.toLowerCase();
+
     const cached = suggestionCache.current.get(cacheKey);
 
     if (cached) {
       setSuggestions(cached);
+
       setSuggestionsFor(query);
+
       setSuggestionsLoading(false);
+
       return;
     }
 
@@ -497,18 +677,24 @@ function App() {
       try {
         const results = await searchCities(
           query,
+
           MAX_SUGGESTIONS,
+
           controller.signal,
         );
 
         suggestionCache.current.set(cacheKey, results);
+
         setSuggestions(results);
+
         setSuggestionsFor(query);
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
 
         console.error("Erro ao buscar sugestões:", error);
+
         setSuggestions([]);
+
         setSuggestionsFor(query);
       } finally {
         if (!controller.signal.aborted) setSuggestionsLoading(false);
@@ -517,6 +703,7 @@ function App() {
 
     return () => {
       window.clearTimeout(timer);
+
       controller.abort();
     };
   }, [search]);
@@ -525,12 +712,15 @@ function App() {
 
   async function loadCity(
     city: GeocodingResult,
+
     { remember = true }: { remember?: boolean } = {},
   ) {
     // Só a requisição mais recente pode atualizar a tela.
+
     const requestId = ++requestIdRef.current;
 
     setLoading(true);
+
     setErrorMessage("");
 
     try {
@@ -539,18 +729,21 @@ function App() {
       if (requestId !== requestIdRef.current) return;
 
       setSelectedCity(city);
+
       setWeather(data);
 
       if (remember) {
         setRecentCities((current) =>
           [
             city,
+
             ...current.filter((item) => cityKey(item) !== cityKey(city)),
           ].slice(0, MAX_RECENT_CITIES),
         );
       }
 
       // Se a cidade é favorita, atualiza o cartão com o clima novo.
+
       setSavedCities((current) =>
         current.map((saved) =>
           cityKey(saved) === cityKey(city)
@@ -562,6 +755,7 @@ function App() {
       if (requestId !== requestIdRef.current) return;
 
       console.error("Erro ao buscar o clima:", error);
+
       setErrorMessage("Não foi possível consultar o clima. Tente novamente.");
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
@@ -572,25 +766,33 @@ function App() {
 
   function closeSearch() {
     setIsSearchOpen(false);
+
     setActiveIndex(-1);
   }
 
   function selectOption(city: GeocodingResult) {
     setSearch(city.name);
+
     closeSearch();
+
     inputRef.current?.blur();
+
     void loadCity(city);
   }
 
   function handleSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setSearch(event.target.value);
+
     setActiveIndex(-1);
+
     setIsSearchOpen(true);
+
     setErrorMessage("");
   }
 
   function handleSearchFocus(event: FocusEvent<HTMLInputElement>) {
     event.target.select();
+
     setIsSearchOpen(true);
   }
 
@@ -605,11 +807,15 @@ function App() {
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
+
       setIsSearchOpen(true);
+
       setActiveIndex((index) => (total ? (index + 1) % total : -1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
+
       setIsSearchOpen(true);
+
       setActiveIndex((index) =>
         total ? (index <= 0 ? total - 1 : index - 1) : -1,
       );
@@ -622,24 +828,31 @@ function App() {
     event.preventDefault();
 
     // 1) Item destacado com as setas.
+
     const highlighted = activeIndex >= 0 ? dropdownItems[activeIndex] : null;
 
     if (highlighted) {
       selectOption(highlighted);
+
       return;
     }
 
     if (!trimmedSearch) return;
 
     // 2) Primeira sugestão já carregada para o que foi digitado.
+
     if (suggestionsFor === trimmedSearch && currentSuggestions.length > 0) {
       selectOption(currentSuggestions[0]);
+
       return;
     }
 
     // 3) Sem sugestões prontas: busca direta.
+
     setLoading(true);
+
     setErrorMessage("");
+
     closeSearch();
 
     try {
@@ -647,20 +860,25 @@ function App() {
 
       if (!result) {
         setErrorMessage("Cidade não encontrada. Tente outro nome.");
+
         setLoading(false);
+
         return;
       }
 
       selectOption(result);
     } catch (error) {
       console.error("Erro ao buscar a cidade:", error);
+
       setErrorMessage("Não foi possível buscar a cidade. Tente novamente.");
+
       setLoading(false);
     }
   }
 
   function clearRecentCities() {
     setRecentCities([]);
+
     setActiveIndex(-1);
   }
 
@@ -672,12 +890,14 @@ function App() {
     if (removingKeys.includes(key)) return;
 
     // Primeiro toca a animação de saída; depois remove da lista.
+
     setRemovingKeys((current) => [...current, key]);
 
     window.setTimeout(() => {
       setSavedCities((current) =>
         current.filter((saved) => cityKey(saved) !== key),
       );
+
       setRemovingKeys((current) => current.filter((item) => item !== key));
     }, REMOVE_ANIMATION_MS);
   }
@@ -687,20 +907,27 @@ function App() {
 
     if (isFavorite) {
       removeCity(selectedCity);
+
       return;
     }
 
     const newCity: SavedCity = {
       name: selectedCity.name,
+
       country: selectedCity.country,
+
       admin1: selectedCity.admin1,
+
       latitude: selectedCity.latitude,
+
       longitude: selectedCity.longitude,
+
       ...getCitySummary(weather),
     };
 
     setSavedCities((current) => [
       newCity,
+
       ...current.filter((saved) => cityKey(saved) !== selectedKey),
     ]);
   }
@@ -711,14 +938,20 @@ function App() {
     if (city.latitude !== undefined && city.longitude !== undefined) {
       target = {
         name: city.name,
+
         country: city.country,
+
         admin1: city.admin1,
+
         latitude: city.latitude,
+
         longitude: city.longitude,
       };
     } else {
       // Favorito antigo, sem coordenadas: descobre e grava no cartão.
+
       setLoading(true);
+
       setErrorMessage("");
 
       try {
@@ -732,9 +965,13 @@ function App() {
               cityKey(saved) === cityKey(city)
                 ? {
                     ...saved,
+
                     country: result.country,
+
                     admin1: result.admin1,
+
                     latitude: result.latitude,
+
                     longitude: result.longitude,
                   }
                 : saved,
@@ -747,7 +984,9 @@ function App() {
 
       if (!target) {
         setErrorMessage(`Não foi possível localizar ${city.name}.`);
+
         setLoading(false);
+
         return;
       }
     }
@@ -760,6 +999,7 @@ function App() {
   function scrollSavedCities(direction: "left" | "right") {
     savedListRef.current?.scrollBy({
       left: direction === "right" ? 330 : -330,
+
       behavior: "smooth",
     });
   }
@@ -785,58 +1025,163 @@ function App() {
   const realForecast: ForecastDay[] = weather ? getForecastDays(weather) : [];
 
   const cityLabel = [selectedCity.name, selectedCity.country]
+
     .filter(Boolean)
+
     .join(", ");
 
   // A API retorna a data local da cidade no campo daily.time.
+
   // Interpretamos a data em UTC para evitar deslocamento pelo fuso do navegador.
+
   const today = weather?.daily.time[0]
-    ? new Date(`${weather.daily.time[0]}T12:00:00Z`).toLocaleDateString("pt-BR", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        timeZone: "UTC",
-      })
+    ? new Date(`${weather.daily.time[0]}T12:00:00Z`).toLocaleDateString(
+        "pt-BR",
+        {
+          weekday: "long",
+
+          day: "numeric",
+
+          month: "long",
+
+          timeZone: "UTC",
+        },
+      )
     : "Carregando data local...";
 
   return (
     <div className="weather-app">
       {/* Fundo decorativo: aurora boreal animada */}
+
       <div className="aurora" aria-hidden="true">
         <span className="aurora-glow aurora-glow-green" />
+
         <span className="aurora-glow aurora-glow-blue" />
+
         <span className="aurora-glow aurora-glow-pink" />
+
         <span className="aurora-curtain aurora-curtain-one" />
+
         <span className="aurora-curtain aurora-curtain-two" />
       </div>
 
-      <header className="topbar glass-panel">
-        <a className="brand" href="#inicio">
-          <span className="brand-mark">
-            <CloudSun />
-          </span>
-          <span>
-            Weather <strong>Lab</strong>
-          </span>
-        </a>
+      <div className="weather-brand-floating" aria-label="Weather Lab">
+        <span className="weather-brand-icon" aria-hidden="true">
+          <CloudSun size={24} strokeWidth={1.8} />
+        </span>
+        <span className="weather-brand-label">Weather Lab</span>
+      </div>
 
-        <nav className="navigation" aria-label="Navegação principal">
-          <a className="navigation-link active" href="#inicio">
-            <Home />
-            Início
-          </a>
+      <nav className="liquid-dock" aria-label="Navegação principal">
+        <div className="dock-items">
+          <button
+            type="button"
+            className={`dock-item ${activePage === "inicio" ? "dock-item-active" : ""}`}
+            onClick={() => {
+              setActivePage("inicio");
 
-          <a className="navigation-link" href="#cidades-salvas">
-            <Bookmark />
-            Cidades salvas
-          </a>
-        </nav>
+              setDockMenuOpen(false);
 
-        <div className="topbar-status">
-          <Sun />
-          <span>Clima em tempo real</span>
+              document.getElementById("inicio")?.scrollIntoView({
+                behavior: "smooth",
+              });
+            }}
+            aria-label="Início"
+            title="Início"
+          >
+            <Home size={21} />
+
+            <span>Início</span>
+          </button>
+
+          <button
+            type="button"
+            className={`dock-item ${activePage === "favoritos" ? "dock-item-active" : ""}`}
+            onClick={() => {
+              setActivePage("favoritos");
+
+              setDockMenuOpen(false);
+
+              document.getElementById("cidades-salvas")?.scrollIntoView({
+                behavior: "smooth",
+              });
+            }}
+            aria-label="Cidades salvas"
+            title="Cidades salvas"
+          >
+            <Bookmark size={21} />
+
+            <span>Cidades salvas</span>
+          </button>
+
+          {[
+            { id: "previsao", label: "Previsão", Icon: CalendarDays },
+
+            { id: "mapas", label: "Mapas", Icon: Map },
+
+            { id: "qualidade-ar", label: "Qualidade do ar", Icon: Wind },
+
+            { id: "configuracoes", label: "Configurações", Icon: Settings },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`dock-item ${activePage === id ? "dock-item-active" : ""}`}
+              onClick={() => {
+                setActivePage(id as WeatherPage);
+
+                setDockMenuOpen(false);
+              }}
+              aria-label={label}
+              title={label}
+            >
+              <Icon size={21} />
+
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
-      </header>
+
+        <button
+          type="button"
+          className={`dock-item dock-menu-button ${dockMenuOpen ? "dock-item-active" : ""}`}
+          onClick={() => setDockMenuOpen((open) => !open)}
+          aria-label={dockMenuOpen ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={dockMenuOpen}
+        >
+          {dockMenuOpen ? <X size={21} /> : <Menu size={21} />}
+
+          <span>Menu</span>
+        </button>
+      </nav>
+
+      {dockMenuOpen && (
+        <div
+          className="dock-mobile-menu glass-panel"
+          role="menu"
+          aria-label="Mais opções"
+        >
+          {[
+            { id: "previsao", label: "Previsão", Icon: CalendarDays },
+            { id: "mapas", label: "Mapas", Icon: Map },
+            { id: "qualidade-ar", label: "Qualidade do ar", Icon: Wind },
+            { id: "configuracoes", label: "Configurações", Icon: Settings },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setActivePage(id as WeatherPage);
+                setDockMenuOpen(false);
+              }}
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <main className="dashboard" id="inicio">
         <form
@@ -875,11 +1220,13 @@ function App() {
             <div
               className="search-suggestions"
               // Evita que o campo perca o foco ao tocar na lista.
+
               onMouseDown={(event) => event.preventDefault()}
             >
               {!hasQuery && (
                 <div className="search-suggestions-header">
                   <span>Pesquisas recentes</span>
+
                   <button
                     className="search-suggestions-clear"
                     onClick={clearRecentCities}
@@ -912,6 +1259,7 @@ function App() {
 
                       <span>
                         <strong>{city.name}</strong>
+
                         <small>{formatPlace(city)}</small>
                       </span>
 
@@ -923,22 +1271,17 @@ function App() {
                 </ul>
               )}
 
-              {hasQuery &&
-                suggestionsLoading &&
-                dropdownItems.length === 0 && (
-                  <div
-                    aria-live="polite"
-                    className="search-suggestions-status search-suggestions-loading"
-                  >
-                    Buscando cidades...
-                  </div>
-                )}
-
-              {showEmpty && (
+              {hasQuery && suggestionsLoading && dropdownItems.length === 0 && (
                 <div
                   aria-live="polite"
-                  className="search-suggestions-status"
+                  className="search-suggestions-status search-suggestions-loading"
                 >
+                  Buscando cidades...
+                </div>
+              )}
+
+              {showEmpty && (
+                <div aria-live="polite" className="search-suggestions-status">
                   Nenhuma cidade encontrada.
                 </div>
               )}
@@ -950,14 +1293,40 @@ function App() {
 
         {errorMessage && <p role="alert">{errorMessage}</p>}
 
+        {activePage === "qualidade-ar" && (
+          <AirQualityPage city={selectedCity} />
+        )}
+
+        {activePage === "previsao" && <ForecastPage city={selectedCity} />}
+
+        {(activePage === "mapas" || activePage === "configuracoes") && (
+          <div className="empty-cities glass-panel">
+            Esta aba ainda está em construção. Por enquanto, você pode usar a
+            aba "Início" para ver o clima e a previsão.
+            
+          </div>
+         
+        )}
+
+         <br />
+
+        {(activePage === "inicio" || activePage === "favoritos") && (
+          <>
+            {/* section main-weather-grid (sem mudar nada) */}
+            {/* section saved-section (sem mudar nada) */}
+          </>
+        )}
+
         <section className="main-weather-grid">
           <article className="current-weather glass-panel">
             <header className="current-weather-header">
               <div>
                 <h1>
                   <MapPin />
+
                   {cityLabel}
                 </h1>
+
                 <p>{today}</p>
               </div>
 
@@ -985,6 +1354,7 @@ function App() {
 
               <div className="temperature-information">
                 <strong>{currentTemperature}°</strong>
+
                 <h2>{currentDescription}</h2>
 
                 <p>
@@ -995,7 +1365,9 @@ function App() {
                       : 26}
                     °
                   </span>
+
                   <i />
+
                   <span>
                     Mín.{" "}
                     {weather
@@ -1010,7 +1382,9 @@ function App() {
             <div className="weather-details">
               <div className="weather-detail">
                 <Droplets />
+
                 <span>Umidade</span>
+
                 <strong>
                   {weather ? `${weather.current.relative_humidity_2m}%` : "—"}
                 </strong>
@@ -1018,24 +1392,38 @@ function App() {
 
               <div className="weather-detail">
                 <Wind />
+
                 <span>Vento</span>
+
                 <strong>
-                  {weather ? `${Math.round(weather.current.wind_speed_10m)} km/h` : "—"}
+                  {weather
+                    ? `${Math.round(weather.current.wind_speed_10m)} km/h`
+                    : "—"}
                 </strong>
               </div>
 
               <div className="weather-detail">
                 <ThermometerSun />
+
                 <span>Sensação</span>
+
                 <strong>
-                  {weather ? `${Math.round(weather.current.apparent_temperature)}°` : "—"}
+                  {weather
+                    ? `${Math.round(weather.current.apparent_temperature)}°`
+                    : "—"}
                 </strong>
               </div>
 
               <div className="weather-detail">
                 <CloudRain />
+
                 <span>Chance de chuva</span>
-                <strong>{currentRainProbability === null ? "—" : `${currentRainProbability}%`}</strong>
+
+                <strong>
+                  {currentRainProbability === null
+                    ? "—"
+                    : `${currentRainProbability}%`}
+                </strong>
               </div>
             </div>
           </article>
@@ -1046,9 +1434,12 @@ function App() {
             <div className="forecast-list">
               {!weather && (
                 <p className="forecast-empty" role="status">
-                  {loading ? "Carregando previsão real..." : "A previsão ficará disponível quando o clima for carregado."}
+                  {loading
+                    ? "Carregando previsão real..."
+                    : "A previsão ficará disponível quando o clima for carregado."}
                 </p>
               )}
+
               {realForecast.map(({ day, max, min, rain, Icon }, index) => (
                 <div
                   className={`forecast-day ${
@@ -1057,9 +1448,13 @@ function App() {
                   key={`${day}-${index}`}
                 >
                   <strong>{day}</strong>
+
                   <Icon className="forecast-icon" />
+
                   <span className="forecast-maximum">{max}°</span>
+
                   <span className="forecast-minimum">{min}°</span>
+
                   <small>
                     <Droplets />
                     {rain}%
@@ -1074,8 +1469,10 @@ function App() {
           <header className="saved-section-header">
             <div>
               <span>Cidades favoritas</span>
+
               <h2>Cidades salvas</h2>
             </div>
+
             <p>
               {savedCities.length}{" "}
               {savedCities.length === 1 ? "cidade" : "cidades"}
@@ -1095,6 +1492,7 @@ function App() {
             <div className="saved-cities-list" ref={savedListRef}>
               {savedCities.map((city) => {
                 const { name, temperature, max, min, Icon } = city;
+
                 const isRemoving = removingKeys.includes(cityKey(city));
 
                 return (
@@ -1107,8 +1505,10 @@ function App() {
                     onClick={() => void selectSavedCity(city)}
                     onKeyDown={(event) => {
                       if (event.target !== event.currentTarget) return;
+
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
+
                         void selectSavedCity(city);
                       }
                     }}
@@ -1118,6 +1518,7 @@ function App() {
                     <header>
                       <div>
                         <h3>{name}</h3>
+
                         <p>{formatPlace(city)}</p>
                       </div>
 
@@ -1125,6 +1526,7 @@ function App() {
                         aria-label={`Remover ${name} dos favoritos`}
                         onClick={(event) => {
                           event.stopPropagation();
+
                           removeCity(city);
                         }}
                         type="button"
@@ -1135,12 +1537,15 @@ function App() {
 
                     <div className="saved-city-weather">
                       <Icon />
+
                       <strong>{temperature}°</strong>
                     </div>
 
                     <p className="saved-city-temperatures">
                       <span>Máx. {max}°</span>
+
                       <i />
+
                       <span>Mín. {min}°</span>
                     </p>
                   </article>
@@ -1167,7 +1572,10 @@ function App() {
           {savedCities.length > 1 && (
             <div className="carousel-indicators" aria-hidden="true">
               {savedCities.map((city, index) => (
-                <span key={cityKey(city)} className={index === 0 ? "active" : ""} />
+                <span
+                  key={cityKey(city)}
+                  className={index === 0 ? "active" : ""}
+                />
               ))}
             </div>
           )}

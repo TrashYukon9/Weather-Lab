@@ -1,0 +1,726 @@
+/* ==========================================================================
+   Weather Lab — Aba "Previsão" (cartões em grade)
+   Usa as variáveis (--green, --ease-out...) e a classe .glass-panel do App.css.
+   Cores de status chegam pela variável --level-color (definida no TSX).
+   ========================================================================== */
+
+.fc-page {
+  animation: rise-in 0.7s var(--ease-out) backwards;
+}
+
+/* --------------------------------------------------------------------------
+   Cabeçalho
+   -------------------------------------------------------------------------- */
+
+.fc-header {
+  display: flex;
+  margin: 0 16px 22px;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.fc-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 650;
+}
+
+.fc-meta {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: #c1d0da;
+  font-size: 14px;
+}
+
+.fc-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.fc-meta svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   Grade e moldura dos cartões
+   4 colunas: o Vento ocupa 2x2, os cartões "wide" ocupam 2 colunas.
+   -------------------------------------------------------------------------- */
+
+.fc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(196px, auto);
+  gap: 16px;
+}
+
+.fc-card {
+  display: flex;
+  min-width: 0;
+  padding: 22px;
+  flex-direction: column;
+  border-radius: 24px;
+}
+
+.fc-wide {
+  grid-column: span 2;
+}
+
+.fc-wind {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.fc-card-title {
+  display: flex;
+  margin: 0 0 16px;
+  align-items: center;
+  gap: 9px;
+  color: #c1d1dc;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.fc-card-title svg {
+  width: 18px;
+  height: 18px;
+  color: #d9f8ff;
+}
+
+/* Textos que se repetem em vários cartões */
+.fc-value {
+  margin: 0;
+  font-size: 44px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.fc-value small {
+  margin-left: 8px;
+  color: #9db0bd;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.fc-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.fc-label {
+  margin: 0;
+  color: var(--level-color);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.fc-label-plain {
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+
+.fc-label-big {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.fc-caption {
+  margin: 8px 0 0;
+  color: #c1d1dc;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fc-caption-top {
+  margin: 0 0 8px;
+}
+
+.fc-card-foot {
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.fc-sentence {
+  margin: 10px 0 0;
+  color: #e4eef6;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+/* Linha de estatísticas (como "duração / pico / confiança" da referência) */
+.fc-stat-row {
+  display: flex;
+  margin: auto 0 0;
+  padding-top: 16px;
+  gap: 8px 28px;
+  flex-wrap: wrap;
+}
+
+.fc-stat-row > div {
+  min-width: 0;
+}
+
+.fc-stat-row dt {
+  color: #9db0bd;
+  font-size: 12px;
+}
+
+.fc-stat-row dd {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* Lista de estatísticas (vento) */
+.fc-stats {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fc-stats li {
+  display: flex;
+  padding: 11px 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: #c1d1dc;
+  font-size: 14px;
+}
+
+.fc-stats strong {
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Vento
+   -------------------------------------------------------------------------- */
+
+.fc-wind-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.fc-compass-wrap {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.fc-compass {
+  width: min(100%, 250px);
+  height: auto;
+}
+
+.fc-compass-disc {
+  fill: color-mix(in srgb, #1fa6a0 16%, transparent);
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+}
+
+.fc-tick {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 1;
+}
+
+.fc-tick-long {
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 1.5;
+}
+
+.fc-compass-letter {
+  fill: #c1d1dc;
+  font-size: 11px;
+  font-weight: 500;
+  dominant-baseline: central;
+}
+
+.fc-compass-arrow circle,
+.fc-compass-arrow polygon {
+  fill: #ffffff;
+}
+
+.fc-compass-arrow circle {
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
+}
+
+.fc-compass-arrow line {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.fc-compass-arrow {
+  animation: fc-needle-in 1.1s 0.2s var(--spring) backwards;
+}
+
+.fc-compass-value {
+  fill: #ffffff;
+  font-size: 32px;
+  font-weight: 300;
+}
+
+.fc-compass-unit {
+  fill: #9db0bd;
+  font-size: 10px;
+}
+
+.fc-wind-from {
+  margin: 0;
+  color: #e4eef6;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Índice UV
+   -------------------------------------------------------------------------- */
+
+.fc-uv-bar {
+  position: relative;
+  height: 8px;
+  margin-top: 16px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #63f59f 0%,
+    #ffd260 30%,
+    #ffa45c 55%,
+    #ff7a8a 78%,
+    #c58bff 100%
+  );
+}
+
+.fc-uv-marker {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--level-color);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--level-color) 70%, transparent);
+  transform: translate(-50%, -50%);
+  animation: fc-marker-in 0.9s 0.3s var(--spring) backwards;
+}
+
+/* --------------------------------------------------------------------------
+   Sol
+   -------------------------------------------------------------------------- */
+
+.fc-sun-arc {
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+}
+
+.fc-sun-horizon {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1;
+}
+
+.fc-sun-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-dasharray: 3 5;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.fc-sun-progress {
+  fill: none;
+  stroke: #ffb35c;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.fc-sun-dot {
+  fill: #ffd27a;
+  filter: drop-shadow(0 0 8px rgba(255, 170, 70, 0.9));
+}
+
+.fc-sun-foot {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   Lua
+   -------------------------------------------------------------------------- */
+
+.fc-moon-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.fc-moon {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 16px rgba(190, 215, 255, 0.28));
+}
+
+.fc-moon-dark {
+  fill: rgba(255, 255, 255, 0.07);
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 0.8;
+}
+
+.fc-moon-lit {
+  fill: #e9f1ff;
+}
+
+/* --------------------------------------------------------------------------
+   Umidade (a "água" sobe conforme a porcentagem)
+   -------------------------------------------------------------------------- */
+
+.fc-water {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.fc-water-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(74, 150, 255, 0.38),
+    rgba(20, 70, 160, 0.28)
+  );
+  transition: height 1s var(--ease-out);
+  animation: fc-water-rise 1.2s var(--ease-out) backwards;
+}
+
+.fc-water-fill::before {
+  position: absolute;
+  top: -11px;
+  right: 0;
+  left: 0;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M0 6 Q15 0 30 6 T60 6 T90 6 T120 6 V12 H0 Z' fill='rgba(74,150,255,0.38)'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 120px 12px;
+  content: "";
+  animation: fc-wave 7s linear infinite;
+}
+
+/* O texto fica acima da água. */
+.fc-humidity > :not(.fc-water) {
+  position: relative;
+  z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Pressão
+   -------------------------------------------------------------------------- */
+
+.fc-pressure-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 32px;
+}
+
+.fc-pressure-info {
+  flex-shrink: 0;
+}
+
+.fc-trend {
+  display: flex;
+  margin: 12px 0 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.fc-trend svg {
+  width: 20px;
+  height: 20px;
+  color: var(--green);
+}
+
+.fc-spark-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.fc-spark {
+  display: block;
+  width: 100%;
+  height: 84px;
+  overflow: visible;
+}
+
+.fc-spark-area {
+  fill: rgba(129, 200, 255, 0.14);
+}
+
+.fc-spark-line {
+  fill: none;
+  stroke: #81c8ff;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.fc-spark-labels {
+  display: flex;
+  margin-top: 8px;
+  justify-content: space-between;
+  color: #9db0bd;
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Visibilidade e nuvens
+   -------------------------------------------------------------------------- */
+
+.fc-metrics {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.fc-metric {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.fc-meter {
+  height: 6px;
+  margin-top: auto;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.fc-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #81c8ff, #d9f0ff);
+  transition: width 0.8s var(--ease-out);
+}
+
+.fc-metric .fc-caption {
+  margin-bottom: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Rodapé, carregando e erro
+   -------------------------------------------------------------------------- */
+
+.fc-footnote {
+  max-width: 70ch;
+  margin: 22px 16px 0;
+  color: #9db0bd;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.fc-status {
+  display: flex;
+  width: fit-content;
+  margin: 0 auto 24px;
+  padding: 10px 18px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(144, 207, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(21, 70, 122, 0.35);
+  color: #cfe8ff;
+  font-size: 14px;
+  animation: pop-in 0.45s var(--spring) backwards;
+}
+
+.fc-status::before {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 2px solid rgba(144, 207, 255, 0.3);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  content: "";
+  animation: spin 0.8s linear infinite;
+}
+
+.fc-error {
+  display: flex;
+  padding: 28px;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  border-radius: 24px;
+  color: #ffc7d1;
+  text-align: center;
+}
+
+.fc-error p {
+  max-width: 46ch;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.fc-error button {
+  display: inline-flex;
+  padding: 10px 18px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(101, 248, 165, 0.5);
+  border-radius: 14px;
+  background: rgba(3, 37, 51, 0.5);
+  color: #65f8a5;
+  transition: transform 0.3s var(--spring);
+}
+
+.fc-error button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fc-error button:active {
+  transform: scale(0.94);
+}
+
+/* --------------------------------------------------------------------------
+   Animações (rise-in, pop-in e spin vêm do App.css)
+   -------------------------------------------------------------------------- */
+
+/* Só o "from": o destino é a rotação que o TSX define na seta. */
+@keyframes fc-needle-in {
+  from {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes fc-marker-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes fc-water-rise {
+  from {
+    height: 0;
+  }
+}
+
+@keyframes fc-wave {
+  to {
+    background-position-x: 120px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Tablet e celular
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .fc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* No tablet o vento fica numa faixa: bússola de um lado, números do outro. */
+  .fc-wind {
+    grid-row: auto;
+  }
+
+  .fc-wind-body {
+    flex-direction: row;
+    gap: 32px;
+  }
+
+  .fc-compass-wrap {
+    flex: 0 0 auto;
+    width: auto;
+  }
+
+  .fc-stats {
+    flex: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .fc-header {
+    margin-inline: 4px;
+  }
+
+  .fc-header h1 {
+    font-size: 24px;
+  }
+
+  .fc-card {
+    padding: 18px;
+  }
+
+  .fc-footnote {
+    margin-inline: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .fc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fc-wide,
+  .fc-wind {
+    grid-column: auto;
+  }
+
+  .fc-wind-body {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .fc-compass-wrap {
+    width: 100%;
+  }
+
+  .fc-pressure-body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .fc-metrics {
+    gap: 18px;
+  }
+}
