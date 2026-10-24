@@ -15,9 +15,9 @@ import AirQualityPage from "./components/AirQualityPage";
 import ForecastPage from "./components/ForecastPage";
 
 import {
+  ArrowDown,
+  ArrowUp,
   Bookmark,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Cloud,
   CloudRain,
@@ -28,7 +28,6 @@ import {
   MapPin,
   Search,
   Sun,
-  ThermometerSun,
   Wind,
   CalendarDays,
   Map,
@@ -40,12 +39,26 @@ import {
 
 import "./App.css";
 
+// Layout da página inicial e da aba "Cidades salvas" (vem depois do App.css).
+import "./components/HomeLayout.css";
+
 interface ForecastDay {
   day: string;
 
   max: number;
 
   min: number;
+
+  rain: number;
+
+  Icon: LucideIcon;
+}
+
+// Um item da "Previsão por hora".
+interface HourlyItem {
+  label: string;
+
+  temperature: number;
 
   rain: number;
 
@@ -110,6 +123,10 @@ interface WeatherResponse {
     time: string[];
 
     precipitation_probability: number[];
+
+    temperature_2m: number[];
+
+    weather_code: number[];
   };
 
   daily: {
@@ -142,6 +159,11 @@ const MIN_QUERY_LENGTH = 3; // a API só faz busca aproximada a partir de 3 letr
 const SUGGESTION_DELAY = 300;
 
 const REMOVE_ANIMATION_MS = 280;
+
+// Previsão por hora: 8 itens, de 3 em 3 horas (cobre as próximas 24 horas).
+const HOURLY_ITEMS = 8;
+
+const HOURLY_STEP_HOURS = 3;
 
 // Cidade exibida na primeira vez que o app abre.
 
@@ -335,26 +357,6 @@ function getCitySummary(data: WeatherResponse): CityWeatherSummary {
   };
 }
 
-function getCurrentRainProbability(data: WeatherResponse): number {
-  const index = data.hourly.time.indexOf(data.current.time);
-
-  if (index >= 0) {
-    return data.hourly.precipitation_probability[index] ?? 0;
-  }
-
-  // O horário atual vem em intervalos de 15 min; busca a hora cheia.
-
-  const currentHour = data.current.time.slice(0, 13);
-
-  const nextIndex = data.hourly.time.findIndex(
-    (time) => time.slice(0, 13) >= currentHour,
-  );
-
-  return nextIndex >= 0
-    ? (data.hourly.precipitation_probability[nextIndex] ?? 0)
-    : 0;
-}
-
 function getForecastDays(data: WeatherResponse): ForecastDay[] {
   return data.daily.time.map((date, index) => {
     const weekday = new Date(`${date}T12:00:00Z`)
@@ -384,6 +386,36 @@ function getForecastDays(data: WeatherResponse): ForecastDay[] {
   });
 }
 
+// Previsão por hora: começa na hora atual e avança de 3 em 3 horas.
+
+function getHourlyForecast(data: WeatherResponse): HourlyItem[] {
+  const currentHour = data.current.time.slice(0, 13);
+
+  const start = Math.max(
+    data.hourly.time.findIndex((time) => time.slice(0, 13) === currentHour),
+
+    0,
+  );
+
+  return Array.from(
+    { length: HOURLY_ITEMS },
+
+    (_, position) => start + position * HOURLY_STEP_HOURS,
+  )
+
+    .filter((index) => index < data.hourly.time.length)
+
+    .map((index, position) => ({
+      label: position === 0 ? "Agora" : `${data.hourly.time[index].slice(11, 13)}h`,
+
+      temperature: Math.round(data.hourly.temperature_2m[index]),
+
+      rain: data.hourly.precipitation_probability[index] ?? 0,
+
+      Icon: getWeatherIcon(data.hourly.weather_code[index]),
+    }));
+}
+
 /* ------------------------------------------------------------------------ */
 
 /* API (Open-Meteo)                                                         */
@@ -398,7 +430,7 @@ async function searchCities(
   signal?: AbortSignal,
 ): Promise<GeocodingResult[]> {
   const response = await fetch(
-    `https\://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
       query,
     )}&count=${count}&language=pt&format=json`,
 
@@ -439,7 +471,7 @@ async function getWeather(
   longitude: number,
 ): Promise<WeatherResponse> {
   const response = await fetch(
-    `https\://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&hourly=precipitation_probability&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&forecast_days=7&timezone=auto`,
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&hourly=precipitation_probability,temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&forecast_days=7&timezone=auto`,
   );
 
   if (!response.ok) {
@@ -498,8 +530,6 @@ function App() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const savedListRef = useRef<HTMLDivElement>(null);
-
   const suggestionCache = useRef(
     new globalThis.Map<string, GeocodingResult[]>(),
   );
@@ -538,19 +568,6 @@ function App() {
 
   const isFavorite =
     savedKeys.has(selectedKey) && !removingKeys.includes(selectedKey);
-
-  useEffect(() => {
-    const target =
-      activePage === "favoritos"
-        ? document.getElementById("cidades-salvas")
-        : null;
-
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth" });
-    } else {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [activePage]);
 
   /* ---- Persistência ---- */
 
@@ -707,6 +724,18 @@ function App() {
       controller.abort();
     };
   }, [search]);
+
+  /* ---- Navegação entre abas ---- */
+
+  // Troca de aba, fecha o menu do celular e volta ao topo da página.
+
+  function goToPage(page: WeatherPage) {
+    setActivePage(page);
+
+    setDockMenuOpen(false);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   /* ---- Carregar o clima de uma cidade ---- */
 
@@ -932,6 +961,8 @@ function App() {
     ]);
   }
 
+  // Abre uma cidade salva: volta para a aba Início e carrega o clima dela.
+
   async function selectSavedCity(city: SavedCity) {
     let target: GeocodingResult | null = null;
 
@@ -991,17 +1022,9 @@ function App() {
       }
     }
 
-    document.getElementById("inicio")?.scrollIntoView({ behavior: "smooth" });
+    goToPage("inicio");
 
     await loadCity(target, { remember: false });
-  }
-
-  function scrollSavedCities(direction: "left" | "right") {
-    savedListRef.current?.scrollBy({
-      left: direction === "right" ? 330 : -330,
-
-      behavior: "smooth",
-    });
   }
 
   /* ---- Valores exibidos ---- */
@@ -1018,17 +1041,11 @@ function App() {
     ? getWeatherDescription(weather.current.weather_code)
     : null;
 
-  const currentRainProbability = weather
-    ? getCurrentRainProbability(weather)
-    : null;
-
   const realForecast: ForecastDay[] = weather ? getForecastDays(weather) : [];
 
-  const cityLabel = [selectedCity.name, selectedCity.country]
-
-    .filter(Boolean)
-
-    .join(", ");
+  const hourlyForecast: HourlyItem[] = weather
+    ? getHourlyForecast(weather)
+    : [];
 
   // A API retorna a data local da cidade no campo daily.time.
 
@@ -1049,6 +1066,18 @@ function App() {
       )
     : "Carregando data local...";
 
+  // Abas que aparecem na barra de navegação (além de Início e Cidades salvas).
+
+  const extraPages = [
+    { id: "previsao", label: "Previsão", Icon: CalendarDays },
+
+    { id: "mapas", label: "Mapas", Icon: Map },
+
+    { id: "qualidade-ar", label: "Qualidade do ar", Icon: Wind },
+
+    { id: "configuracoes", label: "Configurações", Icon: Settings },
+  ];
+
   return (
     <div className="weather-app">
       {/* Fundo decorativo: aurora boreal animada */}
@@ -1065,27 +1094,24 @@ function App() {
         <span className="aurora-curtain aurora-curtain-two" />
       </div>
 
-      <div className="weather-brand-floating" aria-label="Weather Lab">
-        <span className="weather-brand-icon" aria-hidden="true">
-          <CloudSun size={24} strokeWidth={1.8} />
-        </span>
-        <span className="weather-brand-label">Weather Lab</span>
-      </div>
+      {/* Na aba Início a logo aparece aberta no centro da página. */}
+
+      {activePage !== "inicio" && (
+        <div className="weather-brand-floating" aria-label="Weather Lab">
+          <span className="weather-brand-icon" aria-hidden="true">
+            <CloudSun size={24} strokeWidth={1.8} />
+          </span>
+
+          <span className="weather-brand-label">Weather Lab</span>
+        </div>
+      )}
 
       <nav className="liquid-dock" aria-label="Navegação principal">
         <div className="dock-items">
           <button
             type="button"
             className={`dock-item ${activePage === "inicio" ? "dock-item-active" : ""}`}
-            onClick={() => {
-              setActivePage("inicio");
-
-              setDockMenuOpen(false);
-
-              document.getElementById("inicio")?.scrollIntoView({
-                behavior: "smooth",
-              });
-            }}
+            onClick={() => goToPage("inicio")}
             aria-label="Início"
             title="Início"
           >
@@ -1097,15 +1123,7 @@ function App() {
           <button
             type="button"
             className={`dock-item ${activePage === "favoritos" ? "dock-item-active" : ""}`}
-            onClick={() => {
-              setActivePage("favoritos");
-
-              setDockMenuOpen(false);
-
-              document.getElementById("cidades-salvas")?.scrollIntoView({
-                behavior: "smooth",
-              });
-            }}
+            onClick={() => goToPage("favoritos")}
             aria-label="Cidades salvas"
             title="Cidades salvas"
           >
@@ -1114,24 +1132,12 @@ function App() {
             <span>Cidades salvas</span>
           </button>
 
-          {[
-            { id: "previsao", label: "Previsão", Icon: CalendarDays },
-
-            { id: "mapas", label: "Mapas", Icon: Map },
-
-            { id: "qualidade-ar", label: "Qualidade do ar", Icon: Wind },
-
-            { id: "configuracoes", label: "Configurações", Icon: Settings },
-          ].map(({ id, label, Icon }) => (
+          {extraPages.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               className={`dock-item ${activePage === id ? "dock-item-active" : ""}`}
-              onClick={() => {
-                setActivePage(id as WeatherPage);
-
-                setDockMenuOpen(false);
-              }}
+              onClick={() => goToPage(id as WeatherPage)}
               aria-label={label}
               title={label}
             >
@@ -1161,22 +1167,15 @@ function App() {
           role="menu"
           aria-label="Mais opções"
         >
-          {[
-            { id: "previsao", label: "Previsão", Icon: CalendarDays },
-            { id: "mapas", label: "Mapas", Icon: Map },
-            { id: "qualidade-ar", label: "Qualidade do ar", Icon: Wind },
-            { id: "configuracoes", label: "Configurações", Icon: Settings },
-          ].map(({ id, label, Icon }) => (
+          {extraPages.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               role="menuitem"
-              onClick={() => {
-                setActivePage(id as WeatherPage);
-                setDockMenuOpen(false);
-              }}
+              onClick={() => goToPage(id as WeatherPage)}
             >
               <Icon size={18} />
+
               <span>{label}</span>
             </button>
           ))}
@@ -1184,312 +1183,337 @@ function App() {
       )}
 
       <main className="dashboard" id="inicio">
-        <form
-          className="search-bar glass-panel"
-          onBlur={handleSearchBlur}
-          onSubmit={handleSearch}
-        >
-          <MapPin className="search-location-icon" />
+        {activePage === "inicio" && (
+          <div className="home-brand">
+            <span className="home-brand-icon" aria-hidden="true">
+              <CloudSun size={30} strokeWidth={1.8} />
+            </span>
 
-          <input
-            ref={inputRef}
-            aria-activedescendant={
-              activeIndex >= 0 ? `suggestion-${activeIndex}` : undefined
-            }
-            aria-autocomplete="list"
-            aria-controls="search-suggestions"
-            aria-expanded={showDropdown}
-            aria-label="Pesquisar cidade"
-            autoComplete="off"
-            enterKeyHint="search"
-            onChange={handleSearchChange}
-            onClick={() => setIsSearchOpen(true)}
-            onFocus={handleSearchFocus}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Pesquisar uma cidade..."
-            role="combobox"
-            type="search"
-            value={search}
-          />
+            <span className="home-brand-label">Weather Lab</span>
+          </div>
+        )}
 
-          <button aria-label="Pesquisar" type="submit" disabled={loading}>
-            <Search />
-          </button>
+        {/* A busca fica em todas as abas, menos em Cidades salvas. */}
 
-          {showDropdown && (
-            <div
-              className="search-suggestions"
-              // Evita que o campo perca o foco ao tocar na lista.
+        {activePage !== "favoritos" && (
+          <form
+            className="search-bar glass-panel"
+            onBlur={handleSearchBlur}
+            onSubmit={handleSearch}
+          >
+            <MapPin className="search-location-icon" />
 
-              onMouseDown={(event) => event.preventDefault()}
-            >
-              {!hasQuery && (
-                <div className="search-suggestions-header">
-                  <span>Pesquisas recentes</span>
+            <input
+              ref={inputRef}
+              aria-activedescendant={
+                activeIndex >= 0 ? `suggestion-${activeIndex}` : undefined
+              }
+              aria-autocomplete="list"
+              aria-controls="search-suggestions"
+              aria-expanded={showDropdown}
+              aria-label="Pesquisar cidade"
+              autoComplete="off"
+              enterKeyHint="search"
+              onChange={handleSearchChange}
+              onClick={() => setIsSearchOpen(true)}
+              onFocus={handleSearchFocus}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Pesquisar uma cidade..."
+              role="combobox"
+              type="search"
+              value={search}
+            />
 
-                  <button
-                    className="search-suggestions-clear"
-                    onClick={clearRecentCities}
-                    type="button"
-                  >
-                    Limpar
-                  </button>
-                </div>
-              )}
+            <button aria-label="Pesquisar" type="submit" disabled={loading}>
+              <Search />
+            </button>
 
-              {dropdownItems.length > 0 && (
-                <ul
-                  aria-label={hasQuery ? "Sugestões de cidades" : "Recentes"}
-                  id="search-suggestions"
-                  role="listbox"
-                >
-                  {dropdownItems.map((city, index) => (
-                    <li
-                      aria-selected={index === activeIndex}
-                      className={`suggestion-item ${
-                        index === activeIndex ? "suggestion-item-active" : ""
-                      }`}
-                      id={`suggestion-${index}`}
-                      key={cityKey(city)}
-                      onClick={() => selectOption(city)}
-                      onMouseEnter={() => setActiveIndex(index)}
-                      role="option"
+            {showDropdown && (
+              <div
+                className="search-suggestions"
+                // Evita que o campo perca o foco ao tocar na lista.
+
+                onMouseDown={(event) => event.preventDefault()}
+              >
+                {!hasQuery && (
+                  <div className="search-suggestions-header">
+                    <span>Pesquisas recentes</span>
+
+                    <button
+                      className="search-suggestions-clear"
+                      onClick={clearRecentCities}
+                      type="button"
                     >
-                      {hasQuery ? <MapPin /> : <Clock />}
+                      Limpar
+                    </button>
+                  </div>
+                )}
 
-                      <span>
-                        <strong>{city.name}</strong>
+                {dropdownItems.length > 0 && (
+                  <ul
+                    aria-label={hasQuery ? "Sugestões de cidades" : "Recentes"}
+                    id="search-suggestions"
+                    role="listbox"
+                  >
+                    {dropdownItems.map((city, index) => (
+                      <li
+                        aria-selected={index === activeIndex}
+                        className={`suggestion-item ${
+                          index === activeIndex ? "suggestion-item-active" : ""
+                        }`}
+                        id={`suggestion-${index}`}
+                        key={cityKey(city)}
+                        onClick={() => selectOption(city)}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        role="option"
+                      >
+                        {hasQuery ? <MapPin /> : <Clock />}
 
-                        <small>{formatPlace(city)}</small>
-                      </span>
+                        <span>
+                          <strong>{city.name}</strong>
 
-                      {savedKeys.has(cityKey(city)) && (
-                        <Heart className="suggestion-favorite" />
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                          <small>{formatPlace(city)}</small>
+                        </span>
 
-              {hasQuery && suggestionsLoading && dropdownItems.length === 0 && (
-                <div
-                  aria-live="polite"
-                  className="search-suggestions-status search-suggestions-loading"
-                >
-                  Buscando cidades...
-                </div>
-              )}
+                        {savedKeys.has(cityKey(city)) && (
+                          <Heart className="suggestion-favorite" />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
-              {showEmpty && (
-                <div aria-live="polite" className="search-suggestions-status">
-                  Nenhuma cidade encontrada.
-                </div>
-              )}
-            </div>
-          )}
-        </form>
+                {hasQuery &&
+                  suggestionsLoading &&
+                  dropdownItems.length === 0 && (
+                    <div
+                      aria-live="polite"
+                      className="search-suggestions-status search-suggestions-loading"
+                    >
+                      Buscando cidades...
+                    </div>
+                  )}
+
+                {showEmpty && (
+                  <div aria-live="polite" className="search-suggestions-status">
+                    Nenhuma cidade encontrada.
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
 
         {loading && <p role="status">Buscando informações do clima...</p>}
 
         {errorMessage && <p role="alert">{errorMessage}</p>}
 
-        {activePage === "qualidade-ar" && (
-          <AirQualityPage city={selectedCity} />
-        )}
+        {/* ---- Aba Início ---- */}
 
-        {activePage === "previsao" && <ForecastPage city={selectedCity} />}
+        {activePage === "inicio" && (
+          <div className="home home-content">
+            <section className="home-grid">
+              <article className="home-city glass-panel">
+                <header className="home-city-header">
+                  <div>
+                    <h1>{selectedCity.name}</h1>
 
-        {(activePage === "mapas" || activePage === "configuracoes") && (
-          <div className="empty-cities glass-panel">
-            Esta aba ainda está em construção. Por enquanto, você pode usar a
-            aba "Início" para ver o clima e a previsão.
-            
-          </div>
-         
-        )}
+                    <p className="home-place">{formatPlace(selectedCity)}</p>
 
-         <br />
+                    <p className="home-date">{today}</p>
+                  </div>
 
-        {(activePage === "inicio" || activePage === "favoritos") && (
-          <>
-            {/* section main-weather-grid (sem mudar nada) */}
-            {/* section saved-section (sem mudar nada) */}
-          </>
-        )}
+                  <button
+                    aria-label={
+                      isFavorite
+                        ? "Remover cidade dos favoritos"
+                        : "Adicionar cidade aos favoritos"
+                    }
+                    aria-pressed={isFavorite}
+                    className={`favorite-button ${
+                      isFavorite ? "favorite-button-active" : ""
+                    }`}
+                    onClick={toggleFavoriteCity}
+                    type="button"
+                  >
+                    <Heart fill={isFavorite ? "currentColor" : "none"} />
+                  </button>
+                </header>
 
-        <section className="main-weather-grid">
-          <article className="current-weather glass-panel">
-            <header className="current-weather-header">
-              <div>
-                <h1>
-                  <MapPin />
+                <div className="home-now">
+                  <strong className="home-temp">
+                    {currentTemperature ?? "--"}°
+                  </strong>
 
-                  {cityLabel}
-                </h1>
+                  <div className="home-weather-icon">
+                    {createElement(CurrentWeatherIcon)}
+                  </div>
+                </div>
 
-                <p>{today}</p>
+                <p className="home-condition">
+                  {currentDescription ?? "Carregando..."}
+                </p>
+
+                <p className="home-feels">
+                  Sensação térmica de{" "}
+                  {weather
+                    ? Math.round(weather.current.apparent_temperature)
+                    : "--"}
+                  °
+                </p>
+              </article>
+
+              <div className="home-stats">
+                <article className="home-stat home-stat-wind glass-panel">
+                  <span className="home-stat-icon">
+                    <Wind />
+                  </span>
+
+                  <span className="home-stat-label">Vento</span>
+
+                  <strong className="home-stat-value">
+                    {weather ? Math.round(weather.current.wind_speed_10m) : "—"}
+
+                    <small>km/h</small>
+                  </strong>
+                </article>
+
+                <article className="home-stat home-stat-humidity glass-panel">
+                  <span className="home-stat-icon">
+                    <Droplets />
+                  </span>
+
+                  <span className="home-stat-label">Umidade</span>
+
+                  <strong className="home-stat-value">
+                    {weather ? weather.current.relative_humidity_2m : "—"}
+
+                    <small>%</small>
+                  </strong>
+                </article>
+
+                <article className="home-stat home-stat-max glass-panel">
+                  <span className="home-stat-icon">
+                    <ArrowUp />
+                  </span>
+
+                  <span className="home-stat-label">Máxima</span>
+
+                  <strong className="home-stat-value">
+                    {weather
+                      ? `${Math.round(weather.daily.temperature_2m_max[0])}°`
+                      : "—"}
+                  </strong>
+                </article>
+
+                <article className="home-stat home-stat-min glass-panel">
+                  <span className="home-stat-icon">
+                    <ArrowDown />
+                  </span>
+
+                  <span className="home-stat-label">Mínima</span>
+
+                  <strong className="home-stat-value">
+                    {weather
+                      ? `${Math.round(weather.daily.temperature_2m_min[0])}°`
+                      : "—"}
+                  </strong>
+                </article>
               </div>
+            </section>
 
-              <button
-                aria-label={
-                  isFavorite
-                    ? "Remover cidade dos favoritos"
-                    : "Adicionar cidade aos favoritos"
-                }
-                aria-pressed={isFavorite}
-                className={`favorite-button ${
-                  isFavorite ? "favorite-button-active" : ""
-                }`}
-                onClick={toggleFavoriteCity}
-                type="button"
-              >
-                <Heart fill={isFavorite ? "currentColor" : "none"} />
-              </button>
+            <section className="home-section">
+              <h2 className="home-section-title">Previsão por hora</h2>
+
+              <div className="home-hourly glass-panel">
+                <div className="home-hourly-list">
+                  {!weather && (
+                    <p className="home-empty" role="status">
+                      {loading
+                        ? "Carregando previsão por hora..."
+                        : "A previsão ficará disponível quando o clima for carregado."}
+                    </p>
+                  )}
+
+                  {hourlyForecast.map(
+                    ({ label, temperature, rain, Icon }, index) => (
+                      <div
+                        className={`home-hour ${
+                          index === 0 ? "home-hour-active" : ""
+                        }`}
+                        key={`${label}-${index}`}
+                      >
+                        <span className="home-hour-label">{label}</span>
+
+                        <Icon className="home-hour-icon" />
+
+                        <strong>{temperature}°</strong>
+
+                        <small>
+                          <Droplets />
+                          {rain}%
+                        </small>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="home-section">
+              <h2 className="home-section-title">
+                Previsão para os próximos 7 dias
+              </h2>
+
+              <div className="home-daily">
+                {!weather && (
+                  <p className="home-empty" role="status">
+                    {loading
+                      ? "Carregando previsão real..."
+                      : "A previsão ficará disponível quando o clima for carregado."}
+                  </p>
+                )}
+
+                {realForecast.map(({ day, max, min, rain, Icon }, index) => (
+                  <article
+                    className={`home-day glass-panel ${
+                      index === 0 ? "home-day-active" : ""
+                    }`}
+                    key={`${day}-${index}`}
+                  >
+                    <strong className="home-day-name">{day}</strong>
+
+                    <Icon className="home-day-icon" />
+
+                    <span className="home-day-max">{max}°</span>
+
+                    <span className="home-day-min">{min}°</span>
+
+                    <small>
+                      <Droplets />
+                      {rain}%
+                    </small>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ---- Aba Cidades salvas ---- */}
+
+        {activePage === "favoritos" && (
+          <section className="saved-page" aria-labelledby="saved-page-title">
+            <header className="saved-page-header">
+              <h1 id="saved-page-title">Cidades salvas</h1>
+
+              <p>
+                {savedCities.length}{" "}
+                {savedCities.length === 1 ? "cidade" : "cidades"}
+              </p>
             </header>
 
-            <div className="current-weather-content">
-              <div className="main-weather-icon">
-                {createElement(CurrentWeatherIcon)}
-              </div>
-
-              <div className="temperature-information">
-                <strong>{currentTemperature}°</strong>
-
-                <h2>{currentDescription}</h2>
-
-                <p>
-                  <span>
-                    Máx.{" "}
-                    {weather
-                      ? Math.round(weather.daily.temperature_2m_max[0])
-                      : 26}
-                    °
-                  </span>
-
-                  <i />
-
-                  <span>
-                    Mín.{" "}
-                    {weather
-                      ? Math.round(weather.daily.temperature_2m_min[0])
-                      : 17}
-                    °
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            <div className="weather-details">
-              <div className="weather-detail">
-                <Droplets />
-
-                <span>Umidade</span>
-
-                <strong>
-                  {weather ? `${weather.current.relative_humidity_2m}%` : "—"}
-                </strong>
-              </div>
-
-              <div className="weather-detail">
-                <Wind />
-
-                <span>Vento</span>
-
-                <strong>
-                  {weather
-                    ? `${Math.round(weather.current.wind_speed_10m)} km/h`
-                    : "—"}
-                </strong>
-              </div>
-
-              <div className="weather-detail">
-                <ThermometerSun />
-
-                <span>Sensação</span>
-
-                <strong>
-                  {weather
-                    ? `${Math.round(weather.current.apparent_temperature)}°`
-                    : "—"}
-                </strong>
-              </div>
-
-              <div className="weather-detail">
-                <CloudRain />
-
-                <span>Chance de chuva</span>
-
-                <strong>
-                  {currentRainProbability === null
-                    ? "—"
-                    : `${currentRainProbability}%`}
-                </strong>
-              </div>
-            </div>
-          </article>
-
-          <article className="forecast-panel glass-panel">
-            <h2>Previsão para os próximos 7 dias</h2>
-
-            <div className="forecast-list">
-              {!weather && (
-                <p className="forecast-empty" role="status">
-                  {loading
-                    ? "Carregando previsão real..."
-                    : "A previsão ficará disponível quando o clima for carregado."}
-                </p>
-              )}
-
-              {realForecast.map(({ day, max, min, rain, Icon }, index) => (
-                <div
-                  className={`forecast-day ${
-                    index === 0 ? "forecast-day-active" : ""
-                  }`}
-                  key={`${day}-${index}`}
-                >
-                  <strong>{day}</strong>
-
-                  <Icon className="forecast-icon" />
-
-                  <span className="forecast-maximum">{max}°</span>
-
-                  <span className="forecast-minimum">{min}°</span>
-
-                  <small>
-                    <Droplets />
-                    {rain}%
-                  </small>
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
-
-        <section className="saved-section" id="cidades-salvas">
-          <header className="saved-section-header">
-            <div>
-              <span>Cidades favoritas</span>
-
-              <h2>Cidades salvas</h2>
-            </div>
-
-            <p>
-              {savedCities.length}{" "}
-              {savedCities.length === 1 ? "cidade" : "cidades"}
-            </p>
-          </header>
-
-          <div className="saved-carousel">
-            <button
-              aria-label="Ver cidades anteriores"
-              className="carousel-button carousel-button-left"
-              onClick={() => scrollSavedCities("left")}
-              type="button"
-            >
-              <ChevronLeft />
-            </button>
-
-            <div className="saved-cities-list" ref={savedListRef}>
+            <div className="saved-grid">
               {savedCities.map((city) => {
                 const { name, temperature, max, min, Icon } = city;
 
@@ -1553,33 +1577,33 @@ function App() {
               })}
 
               {savedCities.length === 0 && (
-                <div className="empty-cities glass-panel">
-                  Nenhuma cidade salva.
+                <div className="empty-cities saved-empty glass-panel">
+                  <p>Nenhuma cidade salva ainda.</p>
+
+                  <p>
+                    Toque no coração, no cartão da cidade na aba Início, para
+                    salvá-la aqui.
+                  </p>
                 </div>
               )}
             </div>
+          </section>
+        )}
 
-            <button
-              aria-label="Ver próximas cidades"
-              className="carousel-button carousel-button-right"
-              onClick={() => scrollSavedCities("right")}
-              type="button"
-            >
-              <ChevronRight />
-            </button>
+        {/* ---- Outras abas ---- */}
+
+        {activePage === "qualidade-ar" && (
+          <AirQualityPage city={selectedCity} />
+        )}
+
+        {activePage === "previsao" && <ForecastPage city={selectedCity} />}
+
+        {(activePage === "mapas" || activePage === "configuracoes") && (
+          <div className="empty-cities glass-panel">
+            Esta aba ainda está em construção. Por enquanto, você pode usar a
+            aba "Início" para ver o clima e a previsão.
           </div>
-
-          {savedCities.length > 1 && (
-            <div className="carousel-indicators" aria-hidden="true">
-              {savedCities.map((city, index) => (
-                <span
-                  key={cityKey(city)}
-                  className={index === 0 ? "active" : ""}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+        )}
       </main>
     </div>
   );
