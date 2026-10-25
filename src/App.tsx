@@ -13,6 +13,7 @@ import type { WeatherPage } from "./components/Sidebar";
 
 import AirQualityPage from "./components/AirQualityPage";
 import ForecastPage from "./components/ForecastPage";
+import MapPage from "./components/MapPage";
 
 import {
   ArrowDown,
@@ -40,7 +41,7 @@ import {
 import "./App.css";
 
 // Layout da página inicial e da aba "Cidades salvas" (vem depois do App.css).
-import "./components/HomeLayout.css";
+import "./HomeLayout.css";
 
 interface ForecastDay {
   day: string;
@@ -1598,7 +1599,9 @@ function App() {
 
         {activePage === "previsao" && <ForecastPage city={selectedCity} />}
 
-        {(activePage === "mapas" || activePage === "configuracoes") && (
+        {activePage === "mapas" && <MapPage city={selectedCity} />}
+
+        {activePage === "configuracoes" && (
           <div className="empty-cities glass-panel">
             Esta aba ainda está em construção. Por enquanto, você pode usar a
             aba "Início" para ver o clima e a previsão.
