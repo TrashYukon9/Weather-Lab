@@ -521,3 +521,43 @@
     margin-top: 64px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Atualizar, aviso de chuva e indicadores extras
+   -------------------------------------------------------------------------- */
+
+.home-city-actions { display: flex; flex-shrink: 0; gap: 10px; }
+.home-updated { margin: 4px 0 0; color: #9db0bd; font-size: 12px; }
+.refresh-button.is-loading svg { animation: spin 0.8s linear infinite; }
+.refresh-button:disabled { cursor: progress; opacity: 0.75; }
+
+/* Avisos calculados pela previsão (não são alertas oficiais). */
+.home-alert {
+  display: flex;
+  margin: 0 0 16px;
+  padding: 14px 18px;
+  align-items: center;
+  gap: 14px;
+  border-color: rgba(255, 178, 92, 0.4);
+  border-radius: 20px;
+  animation: pop-in 0.45s var(--spring) backwards;
+}
+
+.home-alert > svg { width: 24px; height: 24px; color: #ffb35c; }
+.home-alert > div { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.home-alert strong { font-size: 15px; font-weight: 600; }
+.home-alert small { color: #a9bbc7; font-size: 12px; }
+.home-alert > button { display: grid; width: 34px; height: 34px; flex-shrink: 0; place-items: center; border-radius: 10px; color: #c1d1dc; }
+.home-alert > button svg { width: 18px; height: 18px; }
+
+.home-stat-feels { --tone: #ffb86b; }
+.home-stat-gusts { --tone: #8fb8ff; }
+.home-stat-uv { --tone: #ffd260; }
+.home-stat-pressure { --tone: #b4a0ff; }
+.home-stat-sunrise { --tone: #ffb35c; }
+.home-stat-sunset { --tone: #ff8f6b; }
+.home-stat-rain { --tone: #6fc3ff; }
+
+/* Quantidade ímpar de indicadores: o último ocupa a linha toda. */
+.home-stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.home-stat { min-height: 128px; }

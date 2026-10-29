@@ -6,6 +6,9 @@
    pintamos uma imagem do mundo inteiro, que o globo 3D usa como camada.
    ========================================================================== */
 
+import type { TranslationKey } from "../i18n/translations";
+import { MAP_CACHE_KEY } from "../settings/storage";
+
 /* ------------------------------------------------------------------------ */
 /* Camadas                                                                  */
 /* ------------------------------------------------------------------------ */
@@ -37,11 +40,8 @@ export interface ColorStop {
 export interface LayerConfig {
   key: LayerKey;
 
-  label: string;
+    labelKey: TranslationKey; // nome da camada (traduzido na tela)
 
-  suffix: string; // unidade mostrada depois do número
-
-  decimals: number;
 
   variable: GridVariable;
 
@@ -55,9 +55,7 @@ export interface LayerConfig {
 export const LAYERS: LayerConfig[] = [
   {
     key: "clouds",
-    label: "Nuvens",
-    suffix: "%",
-    decimals: 0,
+    labelKey: "map.layer.clouds",
     variable: "cloud_cover",
     fallback: 0,
     clamp: [0, 100],
@@ -71,9 +69,7 @@ export const LAYERS: LayerConfig[] = [
   },
   {
     key: "temperature",
-    label: "Temperatura",
-    suffix: "°C",
-    decimals: 0,
+    labelKey: "map.layer.temperature",
     variable: "temperature_2m",
     fallback: 15,
     clamp: [-40, 50],
@@ -91,9 +87,7 @@ export const LAYERS: LayerConfig[] = [
   },
   {
     key: "precipitation",
-    label: "Chuva",
-    suffix: " mm/h",
-    decimals: 1,
+    labelKey: "map.layer.precipitation",
     variable: "precipitation",
     fallback: 0,
     clamp: [0, 30],
@@ -109,9 +103,7 @@ export const LAYERS: LayerConfig[] = [
   },
   {
     key: "wind",
-    label: "Vento",
-    suffix: " km/h",
-    decimals: 0,
+    labelKey: "map.layer.wind",
     variable: "wind_speed_10m",
     fallback: 0,
     clamp: [0, 140],
@@ -127,9 +119,7 @@ export const LAYERS: LayerConfig[] = [
   },
   {
     key: "pressure",
-    label: "Pressão",
-    suffix: " hPa",
-    decimals: 0,
+    labelKey: "map.layer.pressure",
     variable: "pressure_msl",
     fallback: 1013,
     clamp: [900, 1080],
@@ -164,19 +154,11 @@ export const COLS = 24; // -180, -165 ... 165
 export const GRID_POINTS = ROWS * COLS;
 
 // Horários que o mapa permite escolher (horas a partir de agora).
-export const FORECAST_STEPS = [
-  { label: "Agora", hours: 0 },
-
-  { label: "+6 h", hours: 6 },
-
-  { label: "+12 h", hours: 12 },
-
-  { label: "+24 h", hours: 24 },
-];
+export const FORECAST_STEPS = [{ hours: 0 }, { hours: 6 }, { hours: 12 }, { hours: 24 }];
 
 const LAST_HOUR = FORECAST_STEPS[FORECAST_STEPS.length - 1].hours;
 
-const CACHE_KEY = "weather-lab-map-grid-v1";
+
 
 const CACHE_MAX_AGE_MS = 45 * 60 * 1000; // reaproveita os dados por 45 minutos
 
@@ -272,7 +254,7 @@ function isMapGrid(value: unknown): value is MapGrid {
 
 function readGridCache(): MapGrid | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(MAP_CACHE_KEY);
 
     if (!raw) return null;
 
@@ -288,15 +270,15 @@ function readGridCache(): MapGrid | null {
 
 function writeGridCache(grid: MapGrid) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(grid));
+    localStorage.setItem(MAP_CACHE_KEY, JSON.stringify(grid));
   } catch (error) {
     console.error("Erro ao salvar o cache do mapa:", error);
   }
 }
 
 // Busca a grade (ou reaproveita a que já foi baixada nos últimos 45 minutos).
-export async function getMapGrid(signal: AbortSignal): Promise<MapGrid> {
-  const cached = readGridCache();
+export async function getMapGrid(signal: AbortSignal, force = false): Promise<MapGrid> {
+  const cached = force ? null : readGridCache();
 
   if (cached) return cached;
 
@@ -566,14 +548,6 @@ export function renderLayerPixels(
 /* ------------------------------------------------------------------------ */
 /* Textos e legenda                                                         */
 /* ------------------------------------------------------------------------ */
-
-export function formatLayerValue(layer: LayerConfig, value: number): string {
-  return `${value.toLocaleString("pt-BR", {
-    minimumFractionDigits: layer.decimals,
-
-    maximumFractionDigits: layer.decimals,
-  })}${layer.suffix}`;
-}
 
 // Faixa de cores da legenda (CSS), na mesma escala da camada.
 export function legendGradient(layer: LayerConfig): string {

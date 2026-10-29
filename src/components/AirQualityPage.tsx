@@ -2,6 +2,9 @@ import { useEffect, useState, type CSSProperties } from "react";
 
 import { Clock, HeartPulse, MapPin, RefreshCw } from "lucide-react";
 
+import type { TranslationKey } from "../i18n/translations";
+import { useI18n } from "../i18n/useI18n";
+
 import "./AirQualityPage.css";
 
 /* ------------------------------------------------------------------------ */
@@ -21,61 +24,26 @@ interface AirQualityCity {
 
 interface AirQualityPageProps {
   city: AirQualityCity;
+
+  // Aumenta quando o usuário pede "atualizar" (ou na atualização automática).
+  refreshKey: number;
 }
 
 interface AqiLevel {
   max: number; // maior valor do AQI que ainda pertence a este nível
-
-  label: string;
-
+  labelKey: TranslationKey;
   color: string;
-
-  advice: string;
+  adviceKey: TranslationKey;
 }
 
 // Níveis do AQI dos EUA (0 a 500). Cada faixa tem uma cor e uma orientação.
 const AQI_LEVELS: AqiLevel[] = [
-  {
-    max: 50,
-    label: "Boa",
-    color: "#63f59f",
-    advice: "Ar limpo. É um ótimo momento para atividades ao ar livre.",
-  },
-  {
-    max: 100,
-    label: "Moderada",
-    color: "#ffd260",
-    advice:
-      "Qualidade aceitável. Pessoas muito sensíveis à poluição podem sentir desconforto em esforços longos ao ar livre.",
-  },
-  {
-    max: 150,
-    label: "Ruim para grupos sensíveis",
-    color: "#ffa45c",
-    advice:
-      "Crianças, idosos e pessoas com asma ou problemas cardíacos devem reduzir esforços prolongados ao ar livre.",
-  },
-  {
-    max: 200,
-    label: "Ruim",
-    color: "#ff7a8a",
-    advice:
-      "Todos podem sentir efeitos na saúde. Evite exercícios intensos ao ar livre.",
-  },
-  {
-    max: 300,
-    label: "Muito ruim",
-    color: "#c58bff",
-    advice:
-      "Alerta de saúde. Evite atividades ao ar livre e prefira ambientes fechados.",
-  },
-  {
-    max: 500,
-    label: "Perigosa",
-    color: "#ff5fa2",
-    advice:
-      "Emergência de saúde. Permaneça em ambientes fechados e evite qualquer esforço ao ar livre.",
-  },
+  { max: 50, labelKey: "aq.level.good", color: "#63f59f", adviceKey: "aq.advice.good" },
+  { max: 100, labelKey: "aq.level.moderate", color: "#ffd260", adviceKey: "aq.advice.moderate" },
+  { max: 150, labelKey: "aq.level.sensitive", color: "#ffa45c", adviceKey: "aq.advice.sensitive" },
+  { max: 200, labelKey: "aq.level.unhealthy", color: "#ff7a8a", adviceKey: "aq.advice.unhealthy" },
+  { max: 300, labelKey: "aq.level.veryUnhealthy", color: "#c58bff", adviceKey: "aq.advice.veryUnhealthy" },
+  { max: 500, labelKey: "aq.level.hazardous", color: "#ff5fa2", adviceKey: "aq.advice.hazardous" },
 ];
 
 // Poluentes exibidos. "key" é a concentração; "aqiKey" é o AQI individual dele
@@ -85,37 +53,37 @@ const POLLUTANTS = [
     key: "pm2_5",
     aqiKey: "us_aqi_pm2_5",
     symbol: "PM2,5",
-    name: "Partículas finas",
+    nameKey: "aq.pollutant.pm25",
   },
   {
     key: "pm10",
     aqiKey: "us_aqi_pm10",
     symbol: "PM10",
-    name: "Partículas inaláveis",
+    nameKey: "aq.pollutant.pm10",
   },
   {
     key: "ozone",
     aqiKey: "us_aqi_ozone",
     symbol: "O₃",
-    name: "Ozônio",
+    nameKey: "aq.pollutant.o3",
   },
   {
     key: "nitrogen_dioxide",
     aqiKey: "us_aqi_nitrogen_dioxide",
     symbol: "NO₂",
-    name: "Dióxido de nitrogênio",
+    nameKey: "aq.pollutant.no2",
   },
   {
     key: "sulphur_dioxide",
     aqiKey: "us_aqi_sulphur_dioxide",
     symbol: "SO₂",
-    name: "Dióxido de enxofre",
+    nameKey: "aq.pollutant.so2",
   },
   {
     key: "carbon_monoxide",
     aqiKey: "us_aqi_carbon_monoxide",
     symbol: "CO",
-    name: "Monóxido de carbono",
+    nameKey: "aq.pollutant.co",
   },
 ] as const;
 
@@ -221,10 +189,10 @@ function levelStyle(level: AqiLevel | null): CSSProperties {
   return { "--level-color": level?.color ?? "#9db0bd" } as CSSProperties;
 }
 
-function formatValue(value: number | null): string {
+function formatValue(value: number | null, locale: string): string {
   return value === null
     ? "—"
-    : value.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+    : value.toLocaleString(locale, { maximumFractionDigits: 1 });
 }
 
 // Pega as próximas 24 horas, começando na hora atual.
@@ -253,11 +221,13 @@ function getNextHours(data: AirQualityResponse): HourlyPoint[] {
 
 // Barra com os 6 níveis e um marcador mostrando onde o AQI atual está.
 function AqiScale({ aqi }: { aqi: number }) {
+  const { t } = useI18n();
+
   return (
     <div className="air-scale" aria-hidden="true">
       <div className="air-scale-track">
         {AQI_LEVELS.map((level) => (
-          <span key={level.label} style={{ background: level.color }} />
+          <span key={level.max} style={{ background: level.color }} />
         ))}
 
         <i
@@ -267,9 +237,9 @@ function AqiScale({ aqi }: { aqi: number }) {
       </div>
 
       <div className="air-scale-labels">
-        <span>Boa</span>
+        <span>{t("aq.level.good")}</span>
 
-        <span>Perigosa</span>
+        <span>{t("aq.level.hazardous")}</span>
       </div>
     </div>
   );
@@ -277,6 +247,8 @@ function AqiScale({ aqi }: { aqi: number }) {
 
 // Gráfico de barras do AQI nas próximas 24 horas.
 function HourlyChart({ points }: { points: HourlyPoint[] }) {
+  const { t } = useI18n();
+
   const valid = points.filter(
     (point): point is HourlyPoint & { aqi: number } => point.aqi !== null,
   );
@@ -284,7 +256,7 @@ function HourlyChart({ points }: { points: HourlyPoint[] }) {
   if (valid.length === 0) {
     return (
       <p className="air-empty">
-        Não há previsão por hora disponível para esta localização.
+        {t("aq.noHourly")}
       </p>
     );
   }
@@ -301,7 +273,7 @@ function HourlyChart({ points }: { points: HourlyPoint[] }) {
       <div
         className="air-chart"
         role="img"
-        aria-label="Índice de qualidade do ar nas próximas 24 horas"
+        aria-label={t("aq.chartLabel")}
       >
         {points.map((point, index) => {
           const level = getAqiLevel(point.aqi);
@@ -310,8 +282,8 @@ function HourlyChart({ points }: { points: HourlyPoint[] }) {
             point.aqi === null ? 0 : Math.max((point.aqi / scaleMax) * 100, 4);
 
           const tooltip = `${point.hour}: ${
-            point.aqi === null ? "sem dados" : `AQI ${point.aqi}`
-          }${level ? `, ${level.label}` : ""}`;
+            point.aqi === null ? t("common.noData") : `AQI ${point.aqi}`
+          }${level ? `, ${t(level.labelKey)}` : ""}`;
 
           return (
             <div
@@ -333,7 +305,7 @@ function HourlyChart({ points }: { points: HourlyPoint[] }) {
               </div>
 
               <small>
-                {index === 0 ? "Agora" : index % 3 === 0 ? point.hour : ""}
+                {index === 0 ? t("common.now") : index % 3 === 0 ? point.hour : ""}
               </small>
             </div>
           );
@@ -342,11 +314,11 @@ function HourlyChart({ points }: { points: HourlyPoint[] }) {
 
       <div className="air-forecast-summary">
         <span>
-          Melhor horário: <strong>{best.hour}</strong>, AQI {best.aqi}
+          {t("aq.bestHour")}: <strong>{best.hour}</strong>, AQI {best.aqi}
         </span>
 
         <span>
-          Pior horário: <strong>{worst.hour}</strong>, AQI {worst.aqi}
+          {t("aq.worstHour")}: <strong>{worst.hour}</strong>, AQI {worst.aqi}
         </span>
       </div>
     </>
@@ -366,6 +338,8 @@ function PollutantCard({
 
   aqi: number | null;
 }) {
+    const { t, locale } = useI18n();
+
   const level = getAqiLevel(aqi);
 
   return (
@@ -373,22 +347,24 @@ function PollutantCard({
       <header>
         <span className="pollutant-symbol">{pollutant.symbol}</span>
 
-        <span className="pollutant-level">{level?.label ?? "Sem dados"}</span>
+        <span className="pollutant-level">{level ? t(level.labelKey) : t("common.noData")}</span>
       </header>
 
       <strong>
-        {formatValue(value)}
+        {formatValue(value, locale)}
 
         {value !== null && <small>{POLLUTANT_UNIT}</small>}
       </strong>
 
-      <p>{pollutant.name}</p>
+      <p>{t(pollutant.nameKey)}</p>
     </article>
   );
 }
 
 // Todo o conteúdo que depende dos dados já carregados.
 function AirQualityContent({ data }: { data: AirQualityResponse }) {
+  const { t } = useI18n();
+
   const aqi =
     data.current.us_aqi === null ? null : Math.round(data.current.us_aqi);
 
@@ -398,7 +374,7 @@ function AirQualityContent({ data }: { data: AirQualityResponse }) {
     <>
       <div className="air-grid">
         <article className="air-current glass-panel" style={levelStyle(level)}>
-          <h2 className="air-card-title">Índice atual</h2>
+          <h2 className="air-card-title">{t("aq.current")}</h2>
 
           <div className="air-index">
             <div className="air-badge">
@@ -408,14 +384,13 @@ function AirQualityContent({ data }: { data: AirQualityResponse }) {
             </div>
 
             <div className="air-summary">
-              <h3>{level?.label ?? "Sem dados"}</h3>
+              <h3>{level ? t(level.labelKey) : t("common.noData")}</h3>
 
               <p className="air-advice">
                 <HeartPulse aria-hidden="true" />
 
                 <span>
-                  {level?.advice ??
-                    "Não há dados de qualidade do ar para esta localização no momento."}
+                  {level ? t(level.adviceKey) : t("aq.noData")}
                 </span>
               </p>
             </div>
@@ -425,16 +400,16 @@ function AirQualityContent({ data }: { data: AirQualityResponse }) {
         </article>
 
         <article className="air-forecast glass-panel">
-          <h2 className="air-card-title">Próximas 24 horas</h2>
+          <h2 className="air-card-title">{t("aq.next24")}</h2>
 
           <HourlyChart points={getNextHours(data)} />
         </article>
       </div>
 
       <header className="air-section-header">
-        <h2>Poluentes</h2>
+        <h2>{t("aq.pollutants")}</h2>
 
-        <p>Concentração atual no ar</p>
+        <p>{t("aq.concentration")}</p>
       </header>
 
       <div className="air-pollutants">
@@ -449,12 +424,8 @@ function AirQualityContent({ data }: { data: AirQualityResponse }) {
       </div>
 
       <p className="air-footnote">
-        Índice AQI dos EUA, de 0 a 500. Os dados vêm de um modelo de previsão
-        atmosférica (CAMS, via Open-Meteo) e podem diferir das medições de
-        estações locais.
+        {t("aq.footnote")}
       </p>
-      <br />
-      <br />
     </>
   );
 }
@@ -463,14 +434,16 @@ function AirQualityContent({ data }: { data: AirQualityResponse }) {
 /* Página                                                                   */
 /* ------------------------------------------------------------------------ */
 
-function AirQualityPage({ city }: AirQualityPageProps) {
+function AirQualityPage({ city, refreshKey }: AirQualityPageProps) {
+  const { t } = useI18n();
+
   // "attempt" aumenta a cada clique em "Tentar novamente" e refaz o pedido.
   const [attempt, setAttempt] = useState(0);
 
   const [result, setResult] = useState<AirQualityResult | null>(null);
 
   // Identifica o pedido atual (cidade + tentativa).
-  const requestKey = `${city.latitude},${city.longitude},${attempt}`;
+  const requestKey = `${city.latitude},${city.longitude},${attempt},${refreshKey}`;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -504,7 +477,7 @@ function AirQualityPage({ city }: AirQualityPageProps) {
   return (
     <section className="air-page" aria-labelledby="air-page-title">
       <header className="air-header">
-        <h1 id="air-page-title">Qualidade do ar</h1>
+        <h1 id="air-page-title">{t("nav.air")}</h1>
 
         <p className="air-meta">
           <span>
@@ -516,7 +489,7 @@ function AirQualityPage({ city }: AirQualityPageProps) {
           {updatedAt && (
             <span>
               <Clock aria-hidden="true" />
-              Dados das {updatedAt} (hora da cidade)
+              {t("common.dataAt", { time: updatedAt })}
             </span>
           )}
         </p>
@@ -524,20 +497,19 @@ function AirQualityPage({ city }: AirQualityPageProps) {
 
       {isLoading && (
         <p className="air-status" role="status">
-          Buscando qualidade do ar...
+          {t("aq.loading")}
         </p>
       )}
 
       {!isLoading && !data && (
         <div className="air-error glass-panel" role="alert">
           <p>
-            Não foi possível carregar a qualidade do ar. Verifique sua conexão e
-            tente novamente.
+            {t("aq.error")}
           </p>
 
           <button type="button" onClick={() => setAttempt((n) => n + 1)}>
             <RefreshCw aria-hidden="true" />
-            Tentar novamente
+            {t("common.retry")}
           </button>
         </div>
       )}

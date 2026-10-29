@@ -14,13 +14,40 @@ import type { WeatherPage } from "./components/Sidebar";
 import AirQualityPage from "./components/AirQualityPage";
 import ForecastPage from "./components/ForecastPage";
 import MapPage from "./components/MapPage";
+import SettingsPage from "./components/SettingsPage";
+
+import type { TranslationKey } from "./i18n/translations";
+import { useI18n } from "./i18n/useI18n";
+import { getCurrentCoordinates, getLocationPermission } from "./settings/geolocation";
+import type { IndicatorKey, Language, Settings as WeatherSettings, StoredCity } from "./settings/settings";
+import { SettingsProvider } from "./settings/SettingsProvider";
+import { useSettings } from "./settings/settingsContext";
+import {
+  ALERTS_SENT_KEY,
+  ALL_LOCAL_KEYS,
+  FAVORITES_KEY,
+  LAST_CITY_KEY,
+  OLD_FAVORITES_KEY,
+  RECENT_KEY,
+  readStorage,
+  removeStorage,
+  writeStorage,
+} from "./settings/storage";
+import { useUnits, type UnitFormatter } from "./settings/units";
 
 import {
   ArrowDown,
   ArrowUp,
   Bookmark,
-  Clock,
+    Clock,
   Cloud,
+  CloudLightning,
+  Gauge,
+  RefreshCw,
+  Sunrise,
+  Sunset,
+  ThermometerSun,
+
   CloudRain,
   CloudSun,
   Droplets,
@@ -42,6 +69,9 @@ import "./App.css";
 
 // Layout da página inicial e da aba "Cidades salvas" (vem depois do App.css).
 import "./HomeLayout.css";
+
+// Tema claro, vidro reduzido e movimento reduzido (vem por último para valer sobre os demais).
+import "./theme.css";
 
 interface ForecastDay {
   day: string;
@@ -115,7 +145,11 @@ interface WeatherResponse {
 
     apparent_temperature: number;
 
-    wind_speed_10m: number;
+        wind_speed_10m: number;
+
+    pressure_msl: number;
+
+    wind_gusts_10m: number;
 
     weather_code: number;
   };
@@ -123,7 +157,7 @@ interface WeatherResponse {
   hourly: {
     time: string[];
 
-    precipitation_probability: number[];
+        precipitation_probability: number[];
 
     temperature_2m: number[];
 
@@ -137,19 +171,20 @@ interface WeatherResponse {
 
     temperature_2m_min: number[];
 
-    precipitation_probability_max: number[];
+        precipitation_probability_max: number[];
+
+    sunrise: string[];
+
+    sunset: string[];
+
+    uv_index_max: number[];
+
+    precipitation_sum: number[];
 
     weather_code: number[];
   };
 }
 
-const FAVORITES_KEY = "weather-lab-favorites";
-
-const OLD_FAVORITES_KEY = "weather-lab-saved-cities";
-
-const RECENT_KEY = "weather-lab-recent";
-
-const LAST_CITY_KEY = "weather-lab-last-city";
 
 const MAX_RECENT_CITIES = 5;
 
@@ -205,31 +240,6 @@ function getWeatherIcon(code: number): LucideIcon {
   return CloudSun;
 }
 
-function getWeatherDescription(code: number): string {
-  if (code === 0) return "Céu limpo";
-
-  if (code === 1) return "Predominantemente limpo";
-
-  if (code === 2) return "Parcialmente nublado";
-
-  if (code === 3) return "Nublado";
-
-  if (code === 45 || code === 48) return "Neblina";
-
-  if (code >= 51 && code <= 57) return "Garoa";
-
-  if (code >= 61 && code <= 67) return "Chuva";
-
-  if (code >= 71 && code <= 77) return "Neve";
-
-  if (code >= 80 && code <= 82) return "Pancadas de chuva";
-
-  if (code >= 85 && code <= 86) return "Pancadas de neve";
-
-  if (code >= 95) return "Tempestade";
-
-  return "Condição meteorológica variável";
-}
 
 // Identifica a cidade pelas coordenadas (distingue cidades homônimas).
 
@@ -271,25 +281,6 @@ function formatPlace(city: {
     .join(", ");
 }
 
-function readStorage(key: string): unknown {
-  try {
-    const raw = localStorage.getItem(key);
-
-    return raw ? JSON.parse(raw) : null;
-  } catch (error) {
-    console.error(`Erro ao ler ${key}:`, error);
-
-    return null;
-  }
-}
-
-function writeStorage(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error(`Erro ao salvar ${key}:`, error);
-  }
-}
 
 function isValidCity(value: unknown): value is GeocodingResult {
   if (typeof value !== "object" || value === null) return false;
@@ -346,11 +337,11 @@ function loadSavedCities(): SavedCity[] {
 
 function getCitySummary(data: WeatherResponse): CityWeatherSummary {
   return {
-    temperature: Math.round(data.current.temperature_2m),
+    temperature: round1(data.current.temperature_2m),
 
-    max: Math.round(data.daily.temperature_2m_max[0] ?? 0),
+    max: round1(data.daily.temperature_2m_max[0] ?? 0),
 
-    min: Math.round(data.daily.temperature_2m_min[0] ?? 0),
+    min: round1(data.daily.temperature_2m_min[0] ?? 0),
 
     Icon: getWeatherIcon(data.current.weather_code),
 
@@ -358,11 +349,11 @@ function getCitySummary(data: WeatherResponse): CityWeatherSummary {
   };
 }
 
-function getForecastDays(data: WeatherResponse): ForecastDay[] {
+function getForecastDays(data: WeatherResponse, locale: string, todayLabel: string): ForecastDay[] {
   return data.daily.time.map((date, index) => {
     const weekday = new Date(`${date}T12:00:00Z`)
 
-      .toLocaleDateString("pt-BR", {
+      .toLocaleDateString(locale, {
         weekday: "short",
 
         timeZone: "UTC",
@@ -373,12 +364,12 @@ function getForecastDays(data: WeatherResponse): ForecastDay[] {
     return {
       day:
         index === 0
-          ? "Hoje"
+          ? todayLabel
           : weekday.charAt(0).toUpperCase() + weekday.slice(1),
 
-      max: Math.round(data.daily.temperature_2m_max[index]),
+      max: data.daily.temperature_2m_max[index],
 
-      min: Math.round(data.daily.temperature_2m_min[index]),
+      min: data.daily.temperature_2m_min[index],
 
       rain: data.daily.precipitation_probability_max[index] ?? 0,
 
@@ -389,7 +380,7 @@ function getForecastDays(data: WeatherResponse): ForecastDay[] {
 
 // Previsão por hora: começa na hora atual e avança de 3 em 3 horas.
 
-function getHourlyForecast(data: WeatherResponse): HourlyItem[] {
+function getHourlyForecast(data: WeatherResponse, nowLabel: string): HourlyItem[] {
   const currentHour = data.current.time.slice(0, 13);
 
   const start = Math.max(
@@ -407,9 +398,9 @@ function getHourlyForecast(data: WeatherResponse): HourlyItem[] {
     .filter((index) => index < data.hourly.time.length)
 
     .map((index, position) => ({
-      label: position === 0 ? "Agora" : `${data.hourly.time[index].slice(11, 13)}h`,
+      label: position === 0 ? nowLabel : `${data.hourly.time[index].slice(11, 13)}h`,
 
-      temperature: Math.round(data.hourly.temperature_2m[index]),
+      temperature: data.hourly.temperature_2m[index],
 
       rain: data.hourly.precipitation_probability[index] ?? 0,
 
@@ -423,17 +414,141 @@ function getHourlyForecast(data: WeatherResponse): HourlyItem[] {
 
 /* ------------------------------------------------------------------------ */
 
+const LANGUAGE_CODES: Record<Language, string> = { "pt-BR": "pt", "en-US": "en", es: "es" };
+
+const round1 = (value: number) => Math.round(value * 10) / 10;
+
+// Cidade com que o app abre, segundo as preferências.
+function getStartupCity(startup: WeatherSettings["startup"]): GeocodingResult {
+  if (startup.cityMode === "default" && startup.defaultCity) return startup.defaultCity;
+  return loadLastCity() ?? startup.defaultCity ?? DEFAULT_CITY;
+}
+
+function makeLocationCity(latitude: number, longitude: number, name: string): GeocodingResult {
+  return { name, country: "", latitude: Number(latitude.toFixed(3)), longitude: Number(longitude.toFixed(3)) };
+}
+
+function getWeatherDescriptionKey(code: number): TranslationKey {
+  if (code === 0) return "weather.clear";
+  if (code === 1) return "weather.mostlyClear";
+  if (code === 2) return "weather.partlyCloudy";
+  if (code === 3) return "weather.cloudy";
+  if (code === 45 || code === 48) return "weather.fog";
+  if (code >= 51 && code <= 57) return "weather.drizzle";
+  if (code >= 61 && code <= 67) return "weather.rain";
+  if (code >= 71 && code <= 77) return "weather.snow";
+  if (code >= 80 && code <= 82) return "weather.showers";
+  if (code >= 85 && code <= 86) return "weather.snowShowers";
+  if (code >= 95) return "weather.storm";
+  return "weather.variable";
+}
+
+function getCurrentHourIndex(data: WeatherResponse): number {
+  const currentHour = data.current.time.slice(0, 13);
+  return Math.max(data.hourly.time.findIndex((time) => time.slice(0, 13) === currentHour), 0);
+}
+
+const ALERT_WINDOW_HOURS = 12;
+
+// Avisos do próprio app: calculados pela previsão (não são alertas oficiais).
+function findRainAlert(data: WeatherResponse, threshold: number) {
+  const start = getCurrentHourIndex(data);
+  for (let index = start; index < Math.min(start + ALERT_WINDOW_HOURS, data.hourly.time.length); index++) {
+    const probability = data.hourly.precipitation_probability[index] ?? 0;
+    if (probability >= threshold) {
+      const time = data.hourly.time[index];
+      return { time, hour: `${time.slice(11, 13)}h`, probability };
+    }
+  }
+  return null;
+}
+
+function findStormAlert(data: WeatherResponse) {
+  const start = getCurrentHourIndex(data);
+  for (let index = start; index < Math.min(start + ALERT_WINDOW_HOURS, data.hourly.time.length); index++) {
+    if ((data.hourly.weather_code[index] ?? 0) >= 95) {
+      const time = data.hourly.time[index];
+      return { time, hour: `${time.slice(11, 13)}h` };
+    }
+  }
+  return null;
+}
+
+function readSentAlerts(): string[] {
+  try {
+    const data: unknown = JSON.parse(sessionStorage.getItem(ALERTS_SENT_KEY) ?? "[]");
+    return Array.isArray(data) ? data.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSentAlerts(ids: string[]) {
+  try {
+    sessionStorage.setItem(ALERTS_SENT_KEY, JSON.stringify(ids.slice(-30)));
+  } catch {
+    /* sem armazenamento: o aviso só pode se repetir */
+  }
+}
+
+// Os indicadores da Início que a pessoa pode escolher em Configurações.
+const INDICATOR_META: Record<IndicatorKey, { Icon: LucideIcon; labelKey: TranslationKey }> = {
+  wind: { Icon: Wind, labelKey: "ind.wind" },
+  humidity: { Icon: Droplets, labelKey: "ind.humidity" },
+  max: { Icon: ArrowUp, labelKey: "ind.max" },
+  min: { Icon: ArrowDown, labelKey: "ind.min" },
+  feels: { Icon: ThermometerSun, labelKey: "ind.feels" },
+  gusts: { Icon: Wind, labelKey: "ind.gusts" },
+  uv: { Icon: Sun, labelKey: "ind.uv" },
+  pressure: { Icon: Gauge, labelKey: "ind.pressure" },
+  sunrise: { Icon: Sunrise, labelKey: "ind.sunrise" },
+  sunset: { Icon: Sunset, labelKey: "ind.sunset" },
+  rain: { Icon: CloudRain, labelKey: "ind.rain" },
+};
+
+interface IndicatorView {
+  key: IndicatorKey;
+  Icon: LucideIcon;
+  labelKey: TranslationKey;
+  value: string;
+  unit: string;
+}
+
+function buildIndicator(key: IndicatorKey, weather: WeatherResponse | null, units: UnitFormatter): IndicatorView {
+  const base = { key, ...INDICATOR_META[key] };
+  if (!weather) return { ...base, value: "—", unit: "" };
+  const { current, daily } = weather;
+  const plain = (value: string) => ({ ...base, value, unit: "" });
+  const parts = ({ value, unit }: { value: string; unit: string }) => ({ ...base, value, unit });
+
+  switch (key) {
+    case "wind": return parts(units.windParts(current.wind_speed_10m));
+    case "gusts": return parts(units.windParts(current.wind_gusts_10m));
+    case "pressure": return parts(units.pressureParts(current.pressure_msl));
+    case "rain": return parts(units.precipitationParts(daily.precipitation_sum[0] ?? 0));
+    case "humidity": return { ...base, value: String(Math.round(current.relative_humidity_2m)), unit: "%" };
+    case "max": return plain(units.temperature(daily.temperature_2m_max[0]));
+    case "min": return plain(units.temperature(daily.temperature_2m_min[0]));
+    case "feels": return plain(units.temperature(current.apparent_temperature));
+    case "uv": return plain(String(Math.round(daily.uv_index_max[0] ?? 0)));
+    case "sunrise": return plain(daily.sunrise[0]?.slice(11, 16) ?? "—");
+    case "sunset": return plain(daily.sunset[0]?.slice(11, 16) ?? "—");
+  }
+}
+
 async function searchCities(
   query: string,
 
   count = MAX_SUGGESTIONS,
 
-  signal?: AbortSignal,
+    signal?: AbortSignal,
+
+  language: Language = "pt-BR",
 ): Promise<GeocodingResult[]> {
   const response = await fetch(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
       query,
-    )}&count=${count}&language=pt&format=json`,
+    )}&count=${count}&language=${LANGUAGE_CODES[language]}&format=json`,
 
     { signal },
   );
@@ -472,7 +587,7 @@ async function getWeather(
   longitude: number,
 ): Promise<WeatherResponse> {
   const response = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&hourly=precipitation_probability,temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&forecast_days=7&timezone=auto`,
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,pressure_msl,wind_gusts_10m,weather_code&hourly=precipitation_probability,temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset,uv_index_max,precipitation_sum&forecast_days=7&timezone=auto`,
   );
 
   if (!response.ok) {
@@ -489,6 +604,12 @@ async function getWeather(
 /* ------------------------------------------------------------------------ */
 
 function App() {
+  const { settings, resetSettings, reducedMotion } = useSettings();
+
+  const { t, locale } = useI18n();
+
+  const units = useUnits();
+
   // Busca e sugestões
 
   const [search, setSearch] = useState("");
@@ -507,14 +628,14 @@ function App() {
     loadRecentCities(),
   );
 
-  const [activePage, setActivePage] = useState<WeatherPage>("inicio");
+  const [activePage, setActivePage] = useState<WeatherPage>(settings.startup.page);
 
   const [dockMenuOpen, setDockMenuOpen] = useState(false);
 
   // Clima e favoritos
 
   const [selectedCity, setSelectedCity] = useState<GeocodingResult>(
-    () => loadLastCity() ?? DEFAULT_CITY,
+    () => getStartupCity(settings.startup),
   );
 
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
@@ -528,6 +649,13 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Quando os dados foram buscados pela última vez, e um contador que as outras abas observam.
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -573,37 +701,38 @@ function App() {
   /* ---- Persistência ---- */
 
   useEffect(() => {
+    if (savedCities.length === 0) {
+      removeStorage(FAVORITES_KEY);
+
+      removeStorage(OLD_FAVORITES_KEY); // evita ressuscitar favoritos de versões antigas
+
+      return;
+    }
+
     writeStorage(
       FAVORITES_KEY,
-
       savedCities.map((city) => ({
         name: city.name,
-
         country: city.country,
-
         admin1: city.admin1,
-
         temperature: city.temperature,
-
         max: city.max,
-
         min: city.min,
-
         weatherCode: city.weatherCode,
-
         latitude: city.latitude,
-
         longitude: city.longitude,
       })),
     );
   }, [savedCities]);
 
-  useEffect(() => {
-    writeStorage(RECENT_KEY, recentCities);
+    useEffect(() => {
+    if (recentCities.length === 0) removeStorage(RECENT_KEY);
+    else writeStorage(RECENT_KEY, recentCities);
   }, [recentCities]);
 
-  useEffect(() => {
-    writeStorage(LAST_CITY_KEY, selectedCity);
+    useEffect(() => {
+    if (cityKey(selectedCity) === cityKey(DEFAULT_CITY)) removeStorage(LAST_CITY_KEY);
+    else writeStorage(LAST_CITY_KEY, selectedCity);
   }, [selectedCity]);
 
   /* ---- Carga inicial: última cidade vista (ou São Paulo) ---- */
@@ -673,7 +802,7 @@ function App() {
       return;
     }
 
-    const cacheKey = query.toLowerCase();
+    const cacheKey = `${settings.language}:${query.toLowerCase()}`;
 
     const cached = suggestionCache.current.get(cacheKey);
 
@@ -693,13 +822,7 @@ function App() {
 
     const timer = window.setTimeout(async () => {
       try {
-        const results = await searchCities(
-          query,
-
-          MAX_SUGGESTIONS,
-
-          controller.signal,
-        );
+        const results = await searchCities(query, MAX_SUGGESTIONS, controller.signal, settings.language);
 
         suggestionCache.current.set(cacheKey, results);
 
@@ -724,7 +847,7 @@ function App() {
 
       controller.abort();
     };
-  }, [search]);
+  }, [search, settings.language]);
 
   /* ---- Navegação entre abas ---- */
 
@@ -735,7 +858,7 @@ function App() {
 
     setDockMenuOpen(false);
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
   }
 
   /* ---- Carregar o clima de uma cidade ---- */
@@ -760,7 +883,10 @@ function App() {
 
       setSelectedCity(city);
 
-      setWeather(data);
+            setWeather(data);
+
+      setLastUpdated(Date.now());
+
 
       if (remember) {
         setRecentCities((current) =>
@@ -786,7 +912,7 @@ function App() {
 
       console.error("Erro ao buscar o clima:", error);
 
-      setErrorMessage("Não foi possível consultar o clima. Tente novamente.");
+      setErrorMessage(navigator.onLine ? t("error.weather") : t("error.offline"));
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
@@ -886,10 +1012,10 @@ function App() {
     closeSearch();
 
     try {
-      const [result] = await searchCities(trimmedSearch, 1);
+      const [result] = await searchCities(trimmedSearch, 1, undefined, settings.language);
 
       if (!result) {
-        setErrorMessage("Cidade não encontrada. Tente outro nome.");
+        setErrorMessage(t("error.cityNotFound"));
 
         setLoading(false);
 
@@ -900,7 +1026,7 @@ function App() {
     } catch (error) {
       console.error("Erro ao buscar a cidade:", error);
 
-      setErrorMessage("Não foi possível buscar a cidade. Tente novamente.");
+      setErrorMessage(t("error.city"));
 
       setLoading(false);
     }
@@ -987,7 +1113,7 @@ function App() {
       setErrorMessage("");
 
       try {
-        const [result] = await searchCities(city.name, 1);
+        const [result] = await searchCities(city.name, 1, undefined, settings.language);
 
         if (result) {
           target = result;
@@ -1015,7 +1141,7 @@ function App() {
       }
 
       if (!target) {
-        setErrorMessage(`Não foi possível localizar ${city.name}.`);
+        setErrorMessage(t("error.locate", { name: city.name }));
 
         setLoading(false);
 
@@ -1026,6 +1152,124 @@ function App() {
     goToPage("inicio");
 
     await loadCity(target, { remember: false });
+  }
+
+    /* ---- Atualização dos dados ---- */
+
+  // Busca de novo o clima da cidade atual e avisa as outras abas para fazerem o mesmo.
+  function refresh() {
+    setRefreshKey((key) => key + 1);
+
+    void loadCity(selectedCity, { remember: false });
+  }
+
+  // Estas referências guardam sempre a versão mais nova, para o relógio de atualização automática.
+  const refreshRef = useRef(refresh);
+
+  const lastUpdatedRef = useRef(lastUpdated);
+
+  useEffect(() => {
+    refreshRef.current = refresh;
+
+    lastUpdatedRef.current = lastUpdated;
+  });
+
+  const autoRefreshMinutes = settings.data.autoRefreshMinutes;
+
+  // Atualização automática: só com a aba visível e com internet; pausa e retoma sozinha.
+  useEffect(() => {
+    if (autoRefreshMinutes === 0) return;
+
+    const interval = autoRefreshMinutes * 60 * 1000;
+
+    const isDue = () =>
+      document.visibilityState === "visible" &&
+      navigator.onLine &&
+      Date.now() - (lastUpdatedRef.current ?? 0) >= interval - 1000;
+
+    const check = () => {
+      if (isDue()) refreshRef.current();
+    };
+
+    const timer = window.setInterval(check, 60 * 1000);
+
+    document.addEventListener("visibilitychange", check);
+
+    window.addEventListener("online", check);
+
+    return () => {
+      window.clearInterval(timer);
+
+      document.removeEventListener("visibilitychange", check);
+
+      window.removeEventListener("online", check);
+    };
+  }, [autoRefreshMinutes]);
+
+  /* ---- Localização atual (só quando a pessoa pede ou já autorizou) ---- */
+
+  // Usada pelo botão em Configurações. Se falhar, o erro volta para quem chamou.
+  async function openCurrentLocation() {
+    const { latitude, longitude } = await getCurrentCoordinates();
+
+    goToPage("inicio");
+
+    await loadCity(makeLocationCity(latitude, longitude, t("location.mine")), { remember: false });
+  }
+
+  // Ao abrir: se a pessoa escolheu "localização atual" e a permissão já foi dada, usamos.
+  useEffect(() => {
+    if (settings.startup.cityMode !== "location") return;
+
+    let cancelled = false;
+
+    void getLocationPermission().then(async (state) => {
+      if (state !== "granted" || cancelled) return;
+
+      try {
+        const { latitude, longitude } = await getCurrentCoordinates();
+
+        if (!cancelled) {
+          await loadCity(makeLocationCity(latitude, longitude, t("location.mine")), { remember: false });
+        }
+      } catch (error) {
+        console.error("Localização indisponível:", error);
+      }
+    });
+
+        return () => {
+      cancelled = true;
+    };
+    // Só ao abrir o app (mudar a configuração depois não deve buscar a localização de novo).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ---- Dados locais (Configurações > Privacidade) ---- */
+
+  function clearFavorites() {
+    setSavedCities([]);
+  }
+
+  function clearRecents() {
+    setRecentCities([]);
+  }
+
+  function clearAllLocalData() {
+    setSavedCities([]);
+
+    setRecentCities([]);
+
+    resetSettings();
+
+    ALL_LOCAL_KEYS.forEach(removeStorage);
+
+    try {
+      sessionStorage.removeItem(ALERTS_SENT_KEY);
+    } catch {
+      /* sem armazenamento de sessão: nada a apagar */
+    }
+
+    void loadCity(DEFAULT_CITY, { remember: false });
   }
 
   /* ---- Valores exibidos ---- */
@@ -1039,13 +1283,13 @@ function App() {
     : null;
 
   const currentDescription = weather
-    ? getWeatherDescription(weather.current.weather_code)
+    ? t(getWeatherDescriptionKey(weather.current.weather_code))
     : null;
 
-  const realForecast: ForecastDay[] = weather ? getForecastDays(weather) : [];
+  const realForecast: ForecastDay[] = weather ? getForecastDays(weather, locale, t("common.today")) : [];
 
   const hourlyForecast: HourlyItem[] = weather
-    ? getHourlyForecast(weather)
+    ? getHourlyForecast(weather, t("common.now"))
     : [];
 
   // A API retorna a data local da cidade no campo daily.time.
@@ -1054,7 +1298,7 @@ function App() {
 
   const today = weather?.daily.time[0]
     ? new Date(`${weather.daily.time[0]}T12:00:00Z`).toLocaleDateString(
-        "pt-BR",
+        locale,
         {
           weekday: "long",
 
@@ -1065,19 +1309,68 @@ function App() {
           timeZone: "UTC",
         },
       )
-    : "Carregando data local...";
+    : t("home.loadingDate");
 
-  // Abas que aparecem na barra de navegação (além de Início e Cidades salvas).
-
-  const extraPages = [
-    { id: "previsao", label: "Previsão", Icon: CalendarDays },
-
-    { id: "mapas", label: "Mapas", Icon: Map },
-
-    { id: "qualidade-ar", label: "Qualidade do ar", Icon: Wind },
-
-    { id: "configuracoes", label: "Configurações", Icon: Settings },
+  // Abas da barra de navegação.
+  const pages: { id: WeatherPage; label: string; Icon: LucideIcon }[] = [
+    { id: "inicio", label: t("nav.home"), Icon: Home },
+    { id: "favoritos", label: t("nav.saved"), Icon: Bookmark },
+    { id: "previsao", label: t("nav.forecast"), Icon: CalendarDays },
+    { id: "mapas", label: t("nav.maps"), Icon: Map },
+    { id: "qualidade-ar", label: t("nav.air"), Icon: Wind },
+    { id: "configuracoes", label: t("nav.settings"), Icon: Settings },
   ];
+
+    // Cidades salvas que têm coordenadas (as antigas podem não ter): servem para escolher a cidade padrão.
+  const settingsCities: StoredCity[] = savedCities.flatMap(({ name, country, admin1, latitude, longitude }) =>
+    latitude !== undefined && longitude !== undefined ? [{ name, country, admin1, latitude, longitude }] : [],
+  );
+
+  // Quadradinhos da Início, conforme escolhido em Configurações.
+  const indicatorViews = settings.home.indicators.map((key) => buildIndicator(key, weather, units));
+
+  // Avisos de chuva e trovoada calculados pela previsão (não são alertas oficiais).
+  const rainHit = weather && settings.alerts.rain ? findRainAlert(weather, settings.alerts.rainThreshold) : null;
+
+  const stormHit = weather && settings.alerts.storm ? findStormAlert(weather) : null;
+
+  const allAlerts = [
+    ...(rainHit
+      ? [{ id: `${selectedKey}|rain|${rainHit.time}`, text: t("alert.rain", { value: rainHit.probability, hour: rainHit.hour }), Icon: CloudRain }]
+      : []),
+    ...(stormHit
+      ? [{ id: `${selectedKey}|storm|${stormHit.time}`, text: t("alert.storm", { hour: stormHit.hour }), Icon: CloudLightning }]
+      : []),
+  ];
+
+  const alertItems = allAlerts.filter((item) => !dismissedAlerts.includes(item.id));
+
+  const allAlertsRef = useRef(allAlerts);
+
+  useEffect(() => {
+    allAlertsRef.current = allAlerts;
+  });
+
+  const alertKey = allAlerts.map((item) => item.id).join(",");
+
+  // Notificação do navegador: só se a pessoa ativou e deu permissão; uma vez por aviso.
+  useEffect(() => {
+    if (!settings.alerts.browser || typeof Notification === "undefined") return;
+
+    if (Notification.permission !== "granted") return;
+
+    const sent = readSentAlerts();
+
+    for (const item of allAlertsRef.current) {
+      if (sent.includes(item.id)) continue;
+
+      new Notification(t("alert.notificationTitle", { city: selectedCity.name }), { body: item.text, tag: item.id });
+
+      sent.push(item.id);
+    }
+
+    writeSentAlerts(sent);
+  }, [alertKey, settings.alerts.browser, selectedCity.name, t]);
 
   return (
     <div className="weather-app">
@@ -1107,38 +1400,14 @@ function App() {
         </div>
       )}
 
-      <nav className="liquid-dock" aria-label="Navegação principal">
+      <nav className="liquid-dock" aria-label={t("nav.main")}>
         <div className="dock-items">
-          <button
-            type="button"
-            className={`dock-item ${activePage === "inicio" ? "dock-item-active" : ""}`}
-            onClick={() => goToPage("inicio")}
-            aria-label="Início"
-            title="Início"
-          >
-            <Home size={21} />
-
-            <span>Início</span>
-          </button>
-
-          <button
-            type="button"
-            className={`dock-item ${activePage === "favoritos" ? "dock-item-active" : ""}`}
-            onClick={() => goToPage("favoritos")}
-            aria-label="Cidades salvas"
-            title="Cidades salvas"
-          >
-            <Bookmark size={21} />
-
-            <span>Cidades salvas</span>
-          </button>
-
-          {extraPages.map(({ id, label, Icon }) => (
+          {pages.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               className={`dock-item ${activePage === id ? "dock-item-active" : ""}`}
-              onClick={() => goToPage(id as WeatherPage)}
+              onClick={() => goToPage(id)}
               aria-label={label}
               title={label}
             >
@@ -1153,28 +1422,19 @@ function App() {
           type="button"
           className={`dock-item dock-menu-button ${dockMenuOpen ? "dock-item-active" : ""}`}
           onClick={() => setDockMenuOpen((open) => !open)}
-          aria-label={dockMenuOpen ? "Fechar menu" : "Abrir menu"}
+          aria-label={dockMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           aria-expanded={dockMenuOpen}
         >
           {dockMenuOpen ? <X size={21} /> : <Menu size={21} />}
 
-          <span>Menu</span>
+          <span>{t("nav.menu")}</span>
         </button>
       </nav>
 
       {dockMenuOpen && (
-        <div
-          className="dock-mobile-menu glass-panel"
-          role="menu"
-          aria-label="Mais opções"
-        >
-          {extraPages.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="menuitem"
-              onClick={() => goToPage(id as WeatherPage)}
-            >
+        <div className="dock-mobile-menu glass-panel" role="menu" aria-label={t("nav.more")}>
+          {pages.slice(2).map(({ id, label, Icon }) => (
+            <button key={id} type="button" role="menuitem" onClick={() => goToPage(id)}>
               <Icon size={18} />
 
               <span>{label}</span>
@@ -1212,20 +1472,20 @@ function App() {
               aria-autocomplete="list"
               aria-controls="search-suggestions"
               aria-expanded={showDropdown}
-              aria-label="Pesquisar cidade"
+              aria-label={t("search.label")}
               autoComplete="off"
               enterKeyHint="search"
               onChange={handleSearchChange}
               onClick={() => setIsSearchOpen(true)}
               onFocus={handleSearchFocus}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Pesquisar uma cidade..."
+              placeholder={t("search.placeholder")}
               role="combobox"
               type="search"
               value={search}
             />
 
-            <button aria-label="Pesquisar" type="submit" disabled={loading}>
+            <button aria-label={t("search.submit")} type="submit" disabled={loading}>
               <Search />
             </button>
 
@@ -1238,21 +1498,21 @@ function App() {
               >
                 {!hasQuery && (
                   <div className="search-suggestions-header">
-                    <span>Pesquisas recentes</span>
+                    <span>{t("search.recent")}</span>
 
                     <button
                       className="search-suggestions-clear"
                       onClick={clearRecentCities}
                       type="button"
                     >
-                      Limpar
+                      {t("search.clear")}
                     </button>
                   </div>
                 )}
 
                 {dropdownItems.length > 0 && (
                   <ul
-                    aria-label={hasQuery ? "Sugestões de cidades" : "Recentes"}
+                    aria-label={hasQuery ? t("search.suggestions") : t("search.recentList")}
                     id="search-suggestions"
                     role="listbox"
                   >
@@ -1291,13 +1551,13 @@ function App() {
                       aria-live="polite"
                       className="search-suggestions-status search-suggestions-loading"
                     >
-                      Buscando cidades...
+                      {t("search.loading")}
                     </div>
                   )}
 
                 {showEmpty && (
                   <div aria-live="polite" className="search-suggestions-status">
-                    Nenhuma cidade encontrada.
+                    {t("search.empty")}
                   </div>
                 )}
               </div>
@@ -1305,7 +1565,7 @@ function App() {
           </form>
         )}
 
-        {loading && <p role="status">Buscando informações do clima...</p>}
+        {loading && <p role="status">{t("status.loadingWeather")}</p>}
 
         {errorMessage && <p role="alert">{errorMessage}</p>}
 
@@ -1313,182 +1573,145 @@ function App() {
 
         {activePage === "inicio" && (
           <div className="home home-content">
+            {alertItems.map((item) => (
+              <div className="home-alert glass-panel" key={item.id} role="note">
+                <item.Icon aria-hidden="true" />
+
+                <div>
+                  <strong>{item.text}</strong>
+
+                  <small>{t("alert.disclaimer")}</small>
+                </div>
+
+                <button type="button" aria-label={t("common.close")} onClick={() => setDismissedAlerts((current) => [...current, item.id])}>
+                  <X aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+
             <section className="home-grid">
               <article className="home-city glass-panel">
                 <header className="home-city-header">
                   <div>
                     <h1>{selectedCity.name}</h1>
 
-                    <p className="home-place">{formatPlace(selectedCity)}</p>
+                    {formatPlace(selectedCity) && <p className="home-place">{formatPlace(selectedCity)}</p>}
 
                     <p className="home-date">{today}</p>
+
+                    {lastUpdated !== null && (
+                      <p className="home-updated">
+                        {t("home.updatedAt", { time: new Date(lastUpdated).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) })}
+                      </p>
+                    )}
                   </div>
 
-                  <button
-                    aria-label={
-                      isFavorite
-                        ? "Remover cidade dos favoritos"
-                        : "Adicionar cidade aos favoritos"
-                    }
-                    aria-pressed={isFavorite}
-                    className={`favorite-button ${
-                      isFavorite ? "favorite-button-active" : ""
-                    }`}
-                    onClick={toggleFavoriteCity}
-                    type="button"
-                  >
-                    <Heart fill={isFavorite ? "currentColor" : "none"} />
-                  </button>
+                  <div className="home-city-actions">
+                    <button
+                      aria-label={t("home.refresh")}
+                      className={`favorite-button refresh-button ${loading ? "is-loading" : ""}`}
+                      disabled={loading}
+                      onClick={refresh}
+                      title={t("home.refresh")}
+                      type="button"
+                    >
+                      <RefreshCw />
+                    </button>
+
+                    <button
+                      aria-label={isFavorite ? t("home.favoriteRemove") : t("home.favoriteAdd")}
+                      aria-pressed={isFavorite}
+                      className={`favorite-button ${isFavorite ? "favorite-button-active" : ""}`}
+                      onClick={toggleFavoriteCity}
+                      type="button"
+                    >
+                      <Heart fill={isFavorite ? "currentColor" : "none"} />
+                    </button>
+                  </div>
                 </header>
 
                 <div className="home-now">
-                  <strong className="home-temp">
-                    {currentTemperature ?? "--"}°
-                  </strong>
+                  <strong className="home-temp">{currentTemperature === null ? "--" : units.temperature(currentTemperature)}</strong>
 
-                  <div className="home-weather-icon">
-                    {createElement(CurrentWeatherIcon)}
-                  </div>
+                  <div className="home-weather-icon">{createElement(CurrentWeatherIcon)}</div>
                 </div>
 
-                <p className="home-condition">
-                  {currentDescription ?? "Carregando..."}
-                </p>
+                <p className="home-condition">{currentDescription ?? t("common.loadingShort")}</p>
 
                 <p className="home-feels">
-                  Sensação térmica de{" "}
-                  {weather
-                    ? Math.round(weather.current.apparent_temperature)
-                    : "--"}
-                  °
+                  {t("home.feels", { value: weather ? units.temperature(weather.current.apparent_temperature) : "--" })}
                 </p>
               </article>
 
               <div className="home-stats">
-                <article className="home-stat home-stat-wind glass-panel">
-                  <span className="home-stat-icon">
-                    <Wind />
-                  </span>
+                {indicatorViews.map(({ key, Icon, labelKey, value, unit }) => (
+                  <article className={`home-stat home-stat-${key} glass-panel`} key={key}>
+                    <span className="home-stat-icon">
+                      <Icon />
+                    </span>
 
-                  <span className="home-stat-label">Vento</span>
+                    <span className="home-stat-label">{t(labelKey)}</span>
 
-                  <strong className="home-stat-value">
-                    {weather ? Math.round(weather.current.wind_speed_10m) : "—"}
+                    <strong className="home-stat-value">
+                      {value}
 
-                    <small>km/h</small>
-                  </strong>
-                </article>
-
-                <article className="home-stat home-stat-humidity glass-panel">
-                  <span className="home-stat-icon">
-                    <Droplets />
-                  </span>
-
-                  <span className="home-stat-label">Umidade</span>
-
-                  <strong className="home-stat-value">
-                    {weather ? weather.current.relative_humidity_2m : "—"}
-
-                    <small>%</small>
-                  </strong>
-                </article>
-
-                <article className="home-stat home-stat-max glass-panel">
-                  <span className="home-stat-icon">
-                    <ArrowUp />
-                  </span>
-
-                  <span className="home-stat-label">Máxima</span>
-
-                  <strong className="home-stat-value">
-                    {weather
-                      ? `${Math.round(weather.daily.temperature_2m_max[0])}°`
-                      : "—"}
-                  </strong>
-                </article>
-
-                <article className="home-stat home-stat-min glass-panel">
-                  <span className="home-stat-icon">
-                    <ArrowDown />
-                  </span>
-
-                  <span className="home-stat-label">Mínima</span>
-
-                  <strong className="home-stat-value">
-                    {weather
-                      ? `${Math.round(weather.daily.temperature_2m_min[0])}°`
-                      : "—"}
-                  </strong>
-                </article>
+                      {unit && <small>{unit}</small>}
+                    </strong>
+                  </article>
+                ))}
               </div>
             </section>
 
-            <section className="home-section">
-              <h2 className="home-section-title">Previsão por hora</h2>
+            {settings.home.mode === "detailed" && (
+              <section className="home-section">
+                <h2 className="home-section-title">{t("home.hourly")}</h2>
 
-              <div className="home-hourly glass-panel">
-                <div className="home-hourly-list">
-                  {!weather && (
-                    <p className="home-empty" role="status">
-                      {loading
-                        ? "Carregando previsão por hora..."
-                        : "A previsão ficará disponível quando o clima for carregado."}
-                    </p>
-                  )}
+                <div className="home-hourly glass-panel">
+                  <div className="home-hourly-list">
+                    {!weather && (
+                      <p className="home-empty" role="status">
+                        {loading ? t("home.loadingHourly") : t("home.waiting")}
+                      </p>
+                    )}
 
-                  {hourlyForecast.map(
-                    ({ label, temperature, rain, Icon }, index) => (
-                      <div
-                        className={`home-hour ${
-                          index === 0 ? "home-hour-active" : ""
-                        }`}
-                        key={`${label}-${index}`}
-                      >
+                    {hourlyForecast.map(({ label, temperature, rain, Icon }, index) => (
+                      <div className={`home-hour ${index === 0 ? "home-hour-active" : ""}`} key={`${label}-${index}`}>
                         <span className="home-hour-label">{label}</span>
 
                         <Icon className="home-hour-icon" />
 
-                        <strong>{temperature}°</strong>
+                        <strong>{units.temperature(temperature)}</strong>
 
                         <small>
                           <Droplets />
                           {rain}%
                         </small>
                       </div>
-                    ),
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
 
             <section className="home-section">
-              <h2 className="home-section-title">
-                Previsão para os próximos 7 dias
-              </h2>
+              <h2 className="home-section-title">{t("home.daily")}</h2>
 
               <div className="home-daily">
                 {!weather && (
                   <p className="home-empty" role="status">
-                    {loading
-                      ? "Carregando previsão real..."
-                      : "A previsão ficará disponível quando o clima for carregado."}
+                    {loading ? t("home.loadingDaily") : t("home.waiting")}
                   </p>
                 )}
 
                 {realForecast.map(({ day, max, min, rain, Icon }, index) => (
-                  <article
-                    className={`home-day glass-panel ${
-                      index === 0 ? "home-day-active" : ""
-                    }`}
-                    key={`${day}-${index}`}
-                  >
+                  <article className={`home-day glass-panel ${index === 0 ? "home-day-active" : ""}`} key={`${day}-${index}`}>
                     <strong className="home-day-name">{day}</strong>
 
                     <Icon className="home-day-icon" />
 
-                    <span className="home-day-max">{max}°</span>
+                    <span className="home-day-max">{units.temperature(max)}</span>
 
-                    <span className="home-day-min">{min}°</span>
+                    <span className="home-day-min">{units.temperature(min)}</span>
 
                     <small>
                       <Droplets />
@@ -1506,12 +1729,9 @@ function App() {
         {activePage === "favoritos" && (
           <section className="saved-page" aria-labelledby="saved-page-title">
             <header className="saved-page-header">
-              <h1 id="saved-page-title">Cidades salvas</h1>
+              <h1 id="saved-page-title">{t("nav.saved")}</h1>
 
-              <p>
-                {savedCities.length}{" "}
-                {savedCities.length === 1 ? "cidade" : "cidades"}
-              </p>
+              <p>{savedCities.length === 1 ? t("saved.one", { count: 1 }) : t("saved.many", { count: savedCities.length })}</p>
             </header>
 
             <div className="saved-grid">
@@ -1522,10 +1742,8 @@ function App() {
 
                 return (
                   <article
-                    aria-label={`Ver clima de ${name}`}
-                    className={`saved-city-card glass-panel ${
-                      isRemoving ? "saved-city-card-removing" : ""
-                    }`}
+                    aria-label={t("saved.view", { name })}
+                    className={`saved-city-card glass-panel ${isRemoving ? "saved-city-card-removing" : ""}`}
                     key={cityKey(city)}
                     onClick={() => void selectSavedCity(city)}
                     onKeyDown={(event) => {
@@ -1548,7 +1766,7 @@ function App() {
                       </div>
 
                       <button
-                        aria-label={`Remover ${name} dos favoritos`}
+                        aria-label={t("saved.remove", { name })}
                         onClick={(event) => {
                           event.stopPropagation();
 
@@ -1563,15 +1781,15 @@ function App() {
                     <div className="saved-city-weather">
                       <Icon />
 
-                      <strong>{temperature}°</strong>
+                      <strong>{units.temperature(temperature)}</strong>
                     </div>
 
                     <p className="saved-city-temperatures">
-                      <span>Máx. {max}°</span>
+                      <span>{t("saved.max", { value: units.temperature(max) })}</span>
 
                       <i />
 
-                      <span>Mín. {min}°</span>
+                      <span>{t("saved.min", { value: units.temperature(min) })}</span>
                     </p>
                   </article>
                 );
@@ -1579,12 +1797,9 @@ function App() {
 
               {savedCities.length === 0 && (
                 <div className="empty-cities saved-empty glass-panel">
-                  <p>Nenhuma cidade salva ainda.</p>
+                  <p>{t("saved.emptyTitle")}</p>
 
-                  <p>
-                    Toque no coração, no cartão da cidade na aba Início, para
-                    salvá-la aqui.
-                  </p>
+                  <p>{t("saved.emptyHint")}</p>
                 </div>
               )}
             </div>
@@ -1593,23 +1808,37 @@ function App() {
 
         {/* ---- Outras abas ---- */}
 
-        {activePage === "qualidade-ar" && (
-          <AirQualityPage city={selectedCity} />
-        )}
+        {activePage === "qualidade-ar" && <AirQualityPage city={selectedCity} refreshKey={refreshKey} />}
 
-        {activePage === "previsao" && <ForecastPage city={selectedCity} />}
+        {activePage === "previsao" && <ForecastPage city={selectedCity} refreshKey={refreshKey} />}
 
-        {activePage === "mapas" && <MapPage city={selectedCity} />}
+        {activePage === "mapas" && <MapPage city={selectedCity} refreshKey={refreshKey} />}
 
         {activePage === "configuracoes" && (
-          <div className="empty-cities glass-panel">
-            Esta aba ainda está em construção. Por enquanto, você pode usar a
-            aba "Início" para ver o clima e a previsão.
-          </div>
+          <SettingsPage
+            currentCity={selectedCity}
+            savedCities={settingsCities}
+            recentCount={recentCities.length}
+            lastUpdated={lastUpdated}
+            loading={loading}
+            onRefresh={refresh}
+            searchCities={(query, signal) => searchCities(query, MAX_SUGGESTIONS, signal, settings.language)}
+            onUseLocation={openCurrentLocation}
+            onClearFavorites={clearFavorites}
+            onClearRecents={clearRecents}
+            onClearAll={clearAllLocalData}
+          />
         )}
       </main>
     </div>
   );
 }
 
-export default App;
+// As configurações envolvem o app inteiro: todas as páginas leem da mesma fonte.
+export default function AppWithSettings() {
+  return (
+    <SettingsProvider>
+      <App />
+    </SettingsProvider>
+  );
+}

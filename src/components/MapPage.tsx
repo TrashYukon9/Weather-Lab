@@ -27,7 +27,6 @@ import {
 import {
   FORECAST_STEPS,
   LAYERS,
-  formatLayerValue,
   getMapGrid,
   legendGradient,
   legendRange,
@@ -37,6 +36,11 @@ import {
   type LayerKey,
   type MapGrid,
 } from "./MapData";
+
+import type { TranslationKey } from "../i18n/translations";
+import { useI18n } from "../i18n/useI18n";
+import { useSettings } from "../settings/settingsContext";
+import { useUnits, type UnitFormatter } from "../settings/units";
 
 import "./MapPage.css";
 
@@ -57,6 +61,9 @@ interface MapCity {
 
 interface MapPageProps {
   city: MapCity;
+
+  // Aumenta quando o usuário pede "atualizar" (ou na atualização automática).
+  refreshKey: number;
 }
 
 // Guarda a resposta junto com a "chave" do pedido que a gerou.
@@ -150,14 +157,30 @@ function easeInOut(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function formatCoordinates({ lat, lng }: Probe): string {
-  return `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? "N" : "S"}, ${Math.abs(
-    lng,
-  ).toFixed(1)}° ${lng >= 0 ? "L" : "O"}`;
+function formatCoordinates(
+  { lat, lng }: Probe,
+  t: (key: TranslationKey) => string,
+): string {
+  const northSouth = lat >= 0 ? t("dir.short.n") : t("dir.short.s");
+  const eastWest = lng >= 0 ? t("dir.short.e") : t("dir.short.w");
+  return `${Math.abs(lat).toFixed(1)}° ${northSouth}, ${Math.abs(lng).toFixed(1)}° ${eastWest}`;
 }
 
-function formatTime(seconds: number): string {
-  return new Date(seconds * 1000).toLocaleString("pt-BR", {
+// Os dados do mapa ficam em unidades métricas; aqui convertemos só para mostrar.
+function formatLayerValue(
+  key: LayerKey,
+  value: number,
+  units: UnitFormatter,
+): string {
+  if (key === "temperature") return units.temperatureWithUnit(value);
+  if (key === "wind") return units.wind(value);
+  if (key === "pressure") return units.pressure(value);
+  if (key === "precipitation") return units.precipitation(value, true);
+  return `${Math.round(value)}%`;
+}
+
+function formatTime(seconds: number, locale: string): string {
+  return new Date(seconds * 1000).toLocaleString(locale, {
     weekday: "short",
 
     day: "numeric",
@@ -255,7 +278,22 @@ function createMarker(color: number, withPulse: boolean) {
 /* Página                                                                   */
 /* ------------------------------------------------------------------------ */
 
-function MapPage({ city }: MapPageProps) {
+function MapPage({ city, refreshKey }: MapPageProps) {
+  const { t, locale } = useI18n();
+
+  const units = useUnits();
+
+  const { reducedMotion } = useSettings();
+
+  // A cena 3D é criada uma vez; ela lê este "recado" a cada quadro.
+  const reducedMotionRef = useRef(reducedMotion);
+
+  useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
+
+  const initialRefreshKey = useRef(refreshKey);
+
   // O navegador consegue desenhar em 3D? (se não, mostramos um aviso)
   const [webglOk] = useState(() => canUseWebGL());
 
@@ -276,7 +314,7 @@ function MapPage({ city }: MapPageProps) {
 
   const apiRef = useRef<SceneApi | null>(null);
 
-  const requestKey = `grid-${attempt}`;
+  const requestKey = `grid-${attempt}-${refreshKey}`;
 
   const layer: LayerConfig =
     LAYERS.find((item) => item.key === layerKey) ?? LAYERS[0];
@@ -286,7 +324,10 @@ function MapPage({ city }: MapPageProps) {
   useEffect(() => {
     const controller = new AbortController();
 
-    getMapGrid(controller.signal)
+    getMapGrid(
+      controller.signal,
+      attempt > 0 || refreshKey !== initialRefreshKey.current,
+    )
       .then((grid) => setResult({ requestKey, grid }))
 
       .catch((error: unknown) => {
@@ -298,7 +339,7 @@ function MapPage({ city }: MapPageProps) {
       });
 
     return () => controller.abort();
-  }, [requestKey]);
+  }, [requestKey, attempt, refreshKey]);
 
   // Só vale a resposta que pertence ao pedido atual; senão, está carregando.
   const currentResult = result?.requestKey === requestKey ? result : null;
@@ -313,10 +354,6 @@ function MapPage({ city }: MapPageProps) {
     const stage = stageRef.current;
 
     if (!webglOk || !stage) return;
-
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
 
     let renderer: THREE.WebGLRenderer;
 
@@ -333,11 +370,6 @@ function MapPage({ city }: MapPageProps) {
     renderer.domElement.className = "map-canvas";
 
     renderer.domElement.setAttribute("role", "img");
-
-    renderer.domElement.setAttribute(
-      "aria-label",
-      "Globo 3D interativo com camadas do tempo",
-    );
 
     stage.prepend(renderer.domElement);
 
@@ -533,7 +565,7 @@ function MapPage({ city }: MapPageProps) {
     function flyTo(normal: THREE.Vector3, instant: boolean) {
       const toDistance = baseDistance * 0.85;
 
-      if (instant) {
+      if (instant || reducedMotionRef.current) {
         camera.position.copy(normal).setLength(toDistance);
 
         controls.update();
@@ -651,11 +683,11 @@ function MapPage({ city }: MapPageProps) {
 
       // Anel que "pulsa" na cidade.
       if (cityMarker.pulse && cityMarker.group.visible) {
-        const cycle = reducedMotion ? 0 : (time % 1800) / 1800;
+        const cycle = reducedMotionRef.current ? 0 : (time % 1800) / 1800;
 
         cityMarker.pulse.scale.setScalar(1 + cycle * 2.6);
 
-        cityMarker.pulse.material.opacity = reducedMotion
+        cityMarker.pulse.material.opacity = reducedMotionRef.current
           ? 0
           : 0.7 * (1 - cycle);
       }
@@ -810,6 +842,13 @@ function MapPage({ city }: MapPageProps) {
     apiRef.current?.setProbe(probe);
   }, [probe]);
 
+  // Descrição do globo para leitores de tela, no idioma escolhido.
+  useEffect(() => {
+    stageRef.current
+      ?.querySelector("canvas")
+      ?.setAttribute("aria-label", t("map.canvasLabel"));
+  }, [t, webglOk]);
+
   // Valores de todas as camadas no ponto tocado.
   const probeValues = useMemo(() => {
     if (!probe || !grid) return null;
@@ -838,7 +877,7 @@ function MapPage({ city }: MapPageProps) {
   return (
     <section className="map-page" aria-labelledby="map-page-title">
       <header className="map-header">
-        <h1 id="map-page-title">Mapas</h1>
+        <h1 id="map-page-title">{t("nav.maps")}</h1>
 
         <p className="map-meta">
           <span>
@@ -850,7 +889,9 @@ function MapPage({ city }: MapPageProps) {
           {grid && (
             <span>
               <Clock aria-hidden="true" />
-              Previsão para {formatTime(grid.times[step])}
+              {t("map.forecastFor", {
+                time: formatTime(grid.times[step], locale),
+              })}
             </span>
           )}
         </p>
@@ -860,8 +901,7 @@ function MapPage({ city }: MapPageProps) {
         <div className="map-stage" ref={stageRef}>
           {!webglOk && (
             <p className="map-fallback" role="alert">
-              Seu navegador não conseguiu iniciar o gráfico 3D. Tente atualizar
-              a página ou usar outro navegador.
+              {t("map.noWebgl")}
             </p>
           )}
 
@@ -873,7 +913,7 @@ function MapPage({ city }: MapPageProps) {
             {city.name}
           </div>
 
-          <div className="map-layers" role="group" aria-label="Camadas do mapa">
+          <div className="map-layers" role="group" aria-label={t("map.layers")}>
             {LAYERS.map((item) => {
               const Icon = LAYER_ICONS[item.key];
 
@@ -885,12 +925,12 @@ function MapPage({ city }: MapPageProps) {
                   className={`map-chip ${active ? "map-chip-active" : ""}`}
                   key={item.key}
                   onClick={() => setLayerKey(item.key)}
-                  title={item.label}
+                  title={t(item.labelKey)}
                   type="button"
                 >
                   <Icon aria-hidden="true" />
 
-                  <span>{item.label}</span>
+                  <span>{t(item.labelKey)}</span>
                 </button>
               );
             })}
@@ -900,13 +940,13 @@ function MapPage({ city }: MapPageProps) {
             <aside className="map-readout" aria-live="polite">
               <header>
                 <div>
-                  <strong>Ponto selecionado</strong>
+                  <strong>{t("map.selectedPoint")}</strong>
 
-                  <span>{formatCoordinates(probe)}</span>
+                  <span>{formatCoordinates(probe, t)}</span>
                 </div>
 
                 <button
-                  aria-label="Fechar"
+                  aria-label={t("common.close")}
                   onClick={() => setProbe(null)}
                   type="button"
                 >
@@ -923,10 +963,12 @@ function MapPage({ city }: MapPageProps) {
                       <span>
                         <Icon aria-hidden="true" />
 
-                        {item.label}
+                        {t(item.labelKey)}
                       </span>
 
-                      <strong>{formatLayerValue(item, value)}</strong>
+                      <strong>
+                        {formatLayerValue(item.key, value, units)}
+                      </strong>
                     </li>
                   );
                 })}
@@ -936,21 +978,21 @@ function MapPage({ city }: MapPageProps) {
 
           <div className="map-bottom">
             <div className="map-legend" style={layerStyle} aria-hidden="true">
-              <strong>{layer.label}</strong>
+              <strong>{t(layer.labelKey)}</strong>
 
               <div className="map-legend-bar" />
 
               <div className="map-legend-scale">
-                <span>{formatLayerValue(layer, legendMin)}</span>
+                <span>{formatLayerValue(layer.key, legendMin, units)}</span>
 
-                <span>{formatLayerValue(layer, legendMax)}</span>
+                <span>{formatLayerValue(layer.key, legendMax, units)}</span>
               </div>
             </div>
 
             <div
               className="map-steps"
               role="group"
-              aria-label="Horário da previsão"
+              aria-label={t("map.timeStep")}
             >
               {FORECAST_STEPS.map((item, index) => (
                 <button
@@ -960,7 +1002,7 @@ function MapPage({ city }: MapPageProps) {
                   onClick={() => setStep(index)}
                   type="button"
                 >
-                  {item.label}
+                  {item.hours === 0 ? t("common.now") : `+${item.hours} h`}
                 </button>
               ))}
             </div>
@@ -972,39 +1014,30 @@ function MapPage({ city }: MapPageProps) {
             >
               <LocateFixed aria-hidden="true" />
 
-              <span>Minha cidade</span>
+              <span>{t("map.myCity")}</span>
             </button>
           </div>
 
           {isLoading && (
             <p className="map-status" role="status">
-              Carregando as camadas do tempo...
+              {t("map.loading")}
             </p>
           )}
 
           {!isLoading && !grid && (
             <div className="map-error" role="alert">
-              <p>
-                Não foi possível carregar as camadas do tempo. O globo continua
-                disponível, mas sem os dados.
-              </p>
+              <p>{t("map.error")}</p>
 
               <button type="button" onClick={() => setAttempt((n) => n + 1)}>
                 <RefreshCw aria-hidden="true" />
-                Tentar novamente
+                {t("common.retry")}
               </button>
             </div>
           )}
         </div>
       </div>
 
-      <p className="map-footnote">
-        Arraste para girar, use a roda do mouse ou o gesto de pinça para
-        aproximar e toque num ponto para ver os valores. As camadas vêm de
-        modelos de previsão (Open-Meteo) em uma grade de 15°, então mostram o
-        padrão geral do tempo, não detalhes de uma cidade. Imagem da Terra: NASA
-        Blue Marble.
-      </p>
+      <p className="map-footnote">{t("map.footnote")}</p>
     </section>
   );
 }
