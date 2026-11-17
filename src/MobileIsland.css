@@ -1,0 +1,159 @@
+/* ==========================================================================
+   Weather Lab — "Ilha" de navegação no celular (telas até 760px)
+   Uma pílula flutuante de vidro, na parte de baixo, com o ícone de cada aba.
+   A aba atual fica acesa e o nome dela aparece por um instante acima da ilha.
+   No computador nada muda: a barra lateral continua a mesma.
+   Vem depois do App.css, então estas regras prevalecem sobre as do celular de lá.
+   ========================================================================== */
+
+.dock-toast {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .liquid-dock {
+    bottom: max(14px, env(safe-area-inset-bottom));
+    gap: 0;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(9, 28, 37, 0.72);
+    box-shadow:
+      0 14px 38px rgba(0, 0, 0, 0.38),
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 1px rgba(255, 255, 255, 0.16);
+    animation: island-in 0.7s var(--spring) backwards;
+  }
+
+  .liquid-dock .dock-items {
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Cada aba é um círculo só com o ícone. */
+  .liquid-dock .dock-item {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-color: transparent;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    transition:
+      background 0.25s ease,
+      border-color 0.25s ease,
+      color 0.25s ease,
+      box-shadow 0.3s ease,
+      transform 0.25s var(--spring);
+  }
+
+  .liquid-dock .dock-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .liquid-dock .dock-item:active {
+    transform: scale(0.88);
+  }
+
+  .liquid-dock .dock-item:hover,
+  .liquid-dock .dock-item:focus-visible {
+    width: 44px;
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+
+  /* A aba atual fica acesa, com um pontinho embaixo do ícone. */
+  .liquid-dock .dock-item-active,
+  .liquid-dock .dock-item-active:hover,
+  .liquid-dock .dock-item-active:focus-visible {
+    border-color: rgba(101, 246, 183, 0.3);
+    background: rgba(72, 230, 157, 0.18);
+    box-shadow: 0 0 22px rgba(48, 226, 155, 0.24);
+    color: #86ffc2;
+  }
+
+  .liquid-dock .dock-item-active::after {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #86ffc2;
+    box-shadow: 0 0 8px #86ffc2;
+    content: "";
+    transform: translateX(-50%);
+  }
+
+  /* Nome da aba: aparece ao trocar de página e some sozinho. */
+  .dock-toast {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    display: block;
+    padding: 6px 14px;
+    border: 1px solid rgba(220, 255, 242, 0.2);
+    border-radius: 999px;
+    background: rgba(9, 28, 37, 0.78);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    color: #eafbf4;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    animation: island-toast 1.9s var(--ease-out) forwards;
+  }
+
+  .dashboard {
+    padding-bottom: 110px;
+  }
+}
+
+/* Telas muito estreitas (320px): ícones um pouco menores para a ilha caber. */
+@media (max-width: 340px) {
+  .liquid-dock .dock-item,
+  .liquid-dock .dock-item:hover,
+  .liquid-dock .dock-item:focus-visible {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@keyframes island-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px) scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes island-toast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.94);
+  }
+
+  14% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  78% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+}

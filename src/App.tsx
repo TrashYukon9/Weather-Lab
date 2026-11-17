@@ -60,7 +60,7 @@ import {
   CalendarDays,
   Map,
   Settings,
-  Menu,
+  
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -69,6 +69,9 @@ import "./App.css";
 
 // Layout da página inicial e da aba "Cidades salvas" (vem depois do App.css).
 import "./HomeLayout.css";
+
+// "Ilha" de navegação do celular.
+import "./MobileIsland.css";
 
 // Tema claro, vidro reduzido e movimento reduzido (vem por último para valer sobre os demais).
 import "./theme.css";
@@ -630,7 +633,9 @@ function App() {
 
   const [activePage, setActivePage] = useState<WeatherPage>(settings.startup.page);
 
-  const [dockMenuOpen, setDockMenuOpen] = useState(false);
+    // Fica verdadeiro depois da primeira troca de aba (o nome da aba aparece na "ilha" do celular).
+  const [hasNavigated, setHasNavigated] = useState(false);
+
 
   // Clima e favoritos
 
@@ -854,9 +859,10 @@ function App() {
   // Troca de aba, fecha o menu do celular e volta ao topo da página.
 
   function goToPage(page: WeatherPage) {
-    setActivePage(page);
+        setActivePage(page);
 
-    setDockMenuOpen(false);
+    setHasNavigated(true);
+
 
     window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
   }
@@ -1407,6 +1413,7 @@ function App() {
               key={id}
               type="button"
               className={`dock-item ${activePage === id ? "dock-item-active" : ""}`}
+              aria-current={activePage === id ? "page" : undefined}
               onClick={() => goToPage(id)}
               aria-label={label}
               title={label}
@@ -1418,30 +1425,14 @@ function App() {
           ))}
         </div>
 
-        <button
-          type="button"
-          className={`dock-item dock-menu-button ${dockMenuOpen ? "dock-item-active" : ""}`}
-          onClick={() => setDockMenuOpen((open) => !open)}
-          aria-label={dockMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-          aria-expanded={dockMenuOpen}
-        >
-          {dockMenuOpen ? <X size={21} /> : <Menu size={21} />}
+        {/* No celular o nome da aba aparece por um instante acima da ilha. */}
 
-          <span>{t("nav.menu")}</span>
-        </button>
+        {hasNavigated && (
+          <span aria-hidden="true" className="dock-toast" key={activePage}>
+            {pages.find((page) => page.id === activePage)?.label}
+          </span>
+        )}
       </nav>
-
-      {dockMenuOpen && (
-        <div className="dock-mobile-menu glass-panel" role="menu" aria-label={t("nav.more")}>
-          {pages.slice(2).map(({ id, label, Icon }) => (
-            <button key={id} type="button" role="menuitem" onClick={() => goToPage(id)}>
-              <Icon size={18} />
-
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       <main className="dashboard" id="inicio">
         {activePage === "inicio" && (

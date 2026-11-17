@@ -3,8 +3,7 @@ import type { TranslationKey } from "./translations";
 // English (US). Same keys as pt.ts; {placeholders} are filled in by the code.
 export const en: Record<TranslationKey, string> = {
   "nav.main": "Main navigation", "nav.home": "Home", "nav.saved": "Saved cities", "nav.forecast": "Forecast",
-  "nav.maps": "Maps", "nav.air": "Air quality", "nav.settings": "Settings", "nav.menu": "Menu",
-  "nav.openMenu": "Open menu", "nav.closeMenu": "Close menu", "nav.more": "More options",
+  "nav.maps": "Maps", "nav.air": "Air quality", "nav.settings": "Settings",
   "common.now": "Now", "common.today": "Today", "common.retry": "Try again", "common.close": "Close",
   "common.cancel": "Cancel", "common.noData": "No data", "common.loadingShort": "Loading...",
   "common.dataAt": "Data from {time} (city time)",

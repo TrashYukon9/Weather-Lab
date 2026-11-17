@@ -3,8 +3,7 @@
 export const pt = {
   // Navegação e comuns
   "nav.main": "Navegação principal", "nav.home": "Início", "nav.saved": "Cidades salvas", "nav.forecast": "Previsão",
-  "nav.maps": "Mapas", "nav.air": "Qualidade do ar", "nav.settings": "Configurações", "nav.menu": "Menu",
-  "nav.openMenu": "Abrir menu", "nav.closeMenu": "Fechar menu", "nav.more": "Mais opções",
+  "nav.maps": "Mapas", "nav.air": "Qualidade do ar", "nav.settings": "Configurações",
   "common.now": "Agora", "common.today": "Hoje", "common.retry": "Tentar novamente", "common.close": "Fechar",
   "common.cancel": "Cancelar", "common.noData": "Sem dados", "common.loadingShort": "Carregando...",
   "common.dataAt": "Dados das {time} (hora da cidade)",

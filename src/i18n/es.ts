@@ -3,8 +3,7 @@ import type { TranslationKey } from "./translations";
 // Español. Mismas claves que pt.ts; los {marcadores} los completa el código.
 export const es: Record<TranslationKey, string> = {
   "nav.main": "Navegación principal", "nav.home": "Inicio", "nav.saved": "Ciudades guardadas", "nav.forecast": "Pronóstico",
-  "nav.maps": "Mapas", "nav.air": "Calidad del aire", "nav.settings": "Configuración", "nav.menu": "Menú",
-  "nav.openMenu": "Abrir menú", "nav.closeMenu": "Cerrar menú", "nav.more": "Más opciones",
+  "nav.maps": "Mapas", "nav.air": "Calidad del aire", "nav.settings": "Configuración",
   "common.now": "Ahora", "common.today": "Hoy", "common.retry": "Intentar de nuevo", "common.close": "Cerrar",
   "common.cancel": "Cancelar", "common.noData": "Sin datos", "common.loadingShort": "Cargando...",
   "common.dataAt": "Datos de las {time} (hora de la ciudad)",
