@@ -1170,3 +1170,7 @@ html[data-motion="reduced"] {
 [data-theme="light"][data-glass="reduced"] :is(.liquid-dock, .weather-brand-floating, .home-brand, .map-layers, .map-readout, .map-legend, .map-steps, .map-locate, .map-city-label, .map-status, .map-error, .set-nav) {
   background: rgba(255, 255, 255, 0.96);
 }
+
+/* Ícones de noite no tema claro (a lua precisa ficar escura para aparecer no fundo claro) */
+[data-theme="light"] .weather-app svg[class~="lucide-moon"] { --icon: #4a5a99; }
+[data-theme="light"] .weather-app svg[class~="lucide-cloud-moon"] { --icon: #53619c; }

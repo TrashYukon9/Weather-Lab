@@ -561,3 +561,7 @@
 /* Quantidade ímpar de indicadores: o último ocupa a linha toda. */
 .home-stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .home-stat { min-height: 128px; }
+
+/* Ícones de noite (lua) */
+.weather-app svg[class~="lucide-moon"] { --icon: #d6dcff; }
+.weather-app svg[class~="lucide-cloud-moon"] { --icon: #c9d2f5; }

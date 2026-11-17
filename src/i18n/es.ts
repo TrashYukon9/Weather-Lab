@@ -14,6 +14,7 @@ export const es: Record<TranslationKey, string> = {
   "error.weather": "No se pudo consultar el clima. Inténtalo de nuevo.",
   "error.offline": "Sin conexión a internet. Revisa la red e inténtalo de nuevo.",
   "error.city": "No se pudo buscar la ciudad. Inténtalo de nuevo.", "error.cityNotFound": "Ciudad no encontrada. Prueba con otro nombre.",
+  "error.pageLoad": "No se pudo cargar esta pestaña. Revisa tu conexión e inténtalo de nuevo.", "error.staleData": "No se pudo actualizar ahora. Mostrando el último clima guardado, de las {time}.", "common.reload": "Recargar página", "set.privacy.lastWeather": "El último clima consultado, para abrir más rápido y funcionar sin internet",
   "error.locate": "No se pudo localizar {name}.", "location.mine": "Mi ubicación",
   "weather.clear": "Cielo despejado", "weather.mostlyClear": "Mayormente despejado", "weather.partlyCloudy": "Parcialmente nublado",
   "weather.cloudy": "Nublado", "weather.fog": "Niebla", "weather.drizzle": "Llovizna", "weather.rain": "Lluvia",

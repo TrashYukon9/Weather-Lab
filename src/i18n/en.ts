@@ -14,6 +14,7 @@ export const en: Record<TranslationKey, string> = {
   "error.weather": "Couldn't get the weather. Please try again.",
   "error.offline": "No internet connection. Check your network and try again.",
   "error.city": "Couldn't search for the city. Please try again.", "error.cityNotFound": "City not found. Try another name.",
+  "error.pageLoad": "Couldn't load this tab. Check your connection and try again.", "error.staleData": "Couldn't refresh right now. Showing the last saved weather, from {time}.", "common.reload": "Reload page", "set.privacy.lastWeather": "The last weather you looked up, so the app opens faster and works offline",
   "error.locate": "Couldn't locate {name}.", "location.mine": "My location",
   "weather.clear": "Clear sky", "weather.mostlyClear": "Mostly clear", "weather.partlyCloudy": "Partly cloudy",
   "weather.cloudy": "Cloudy", "weather.fog": "Fog", "weather.drizzle": "Drizzle", "weather.rain": "Rain",

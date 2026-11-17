@@ -17,8 +17,8 @@ const dependencies = { ...info.dependencies, ...info.devDependencies };
 export const APP_INFO = {
   name: "Weather Lab",
   version: info.version ?? "",
-  githubUrl: "https://github.com/TrashYukon9/Weather-Lab",
-  portfolioUrl: "https://trashyukon9.github.io/DanielWn.site/index.html",
+  githubUrl: "", // ex.: "https://github.com/seu-usuario/weather-lab"
+  portfolioUrl: "", // ex.: "https://seu-portfolio.com"
   dataSource: { name: "Open-Meteo", url: "https://open-meteo.com" },
   // Tecnologias: aparecem só se estiverem declaradas no package.json.
   technologies: [

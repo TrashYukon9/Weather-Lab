@@ -386,6 +386,7 @@ function SettingsPage(props: SettingsPageProps) {
             <li>{t("set.privacy.favorites", { count: savedCities.length })}</li>
             <li>{t("set.privacy.recents", { count: recentCount })}</li>
             <li>{t("set.privacy.lastCity")}</li>
+            <li>{t("set.privacy.lastWeather")}</li>
             <li>{t("set.privacy.mapCache")}</li>
           </ul>
         </Row>

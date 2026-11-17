@@ -5,6 +5,7 @@ export const FAVORITES_KEY = "weather-lab-favorites";
 export const OLD_FAVORITES_KEY = "weather-lab-saved-cities";
 export const RECENT_KEY = "weather-lab-recent";
 export const LAST_CITY_KEY = "weather-lab-last-city";
+export const LAST_WEATHER_KEY = "weather-lab-last-weather";
 export const MAP_CACHE_KEY = "weather-lab-map-grid-v1";
 
 // Guardada só enquanto a aba está aberta (evita repetir a mesma notificação).
@@ -16,7 +17,8 @@ export const ALL_LOCAL_KEYS = [
   FAVORITES_KEY,
   OLD_FAVORITES_KEY,
   RECENT_KEY,
-  LAST_CITY_KEY,
+    LAST_CITY_KEY,
+  LAST_WEATHER_KEY,
   MAP_CACHE_KEY,
 ];
 

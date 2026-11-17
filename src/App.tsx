@@ -1,19 +1,23 @@
 import {
+    Component,
+  Suspense,
   createElement,
+  lazy,
   useEffect,
   useRef,
   useState,
   type ChangeEvent,
   type FocusEvent,
   type FormEvent,
-  type KeyboardEvent,
+    type KeyboardEvent,
+  type ReactNode,
 } from "react";
 
 import type { WeatherPage } from "./components/Sidebar";
 
 import AirQualityPage from "./components/AirQualityPage";
 import ForecastPage from "./components/ForecastPage";
-import MapPage from "./components/MapPage";
+
 import SettingsPage from "./components/SettingsPage";
 
 import type { TranslationKey } from "./i18n/translations";
@@ -26,7 +30,8 @@ import {
   ALERTS_SENT_KEY,
   ALL_LOCAL_KEYS,
   FAVORITES_KEY,
-  LAST_CITY_KEY,
+    LAST_CITY_KEY,
+  LAST_WEATHER_KEY,
   OLD_FAVORITES_KEY,
   RECENT_KEY,
   readStorage,
@@ -41,7 +46,10 @@ import {
   Bookmark,
     Clock,
   Cloud,
-  CloudLightning,
+    CloudLightning,
+  CloudMoon,
+  Moon,
+
   Gauge,
   RefreshCw,
   Sunrise,
@@ -75,6 +83,29 @@ import "./MobileIsland.css";
 
 // Tema claro, vidro reduzido e movimento reduzido (vem por último para valer sobre os demais).
 import "./theme.css";
+
+// O globo 3D (three.js) é a parte mais pesada do app. Ele só é baixado quando a pessoa abre a aba Mapas,
+// ou quando passa o mouse/foco no botão dela (assim a aba já abre pronta).
+const loadMapPage = () => import("./components/MapPage");
+
+const MapPage = lazy(loadMapPage);
+
+// Se o download de uma aba falhar (ex.: sem internet), mostra um aviso em vez de derrubar o app.
+class PageErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("Erro ao carregar a aba:", error);
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 interface ForecastDay {
   day: string;
@@ -114,7 +145,10 @@ interface SavedCity {
 
   Icon: LucideIcon;
 
-  weatherCode?: number;
+    weatherCode?: number;
+
+  isDay?: boolean;
+
 
   latitude?: number;
 
@@ -123,7 +157,7 @@ interface SavedCity {
 
 type CityWeatherSummary = Pick<
   SavedCity,
-  "temperature" | "max" | "min" | "Icon" | "weatherCode"
+  "temperature" | "max" | "min" | "Icon" | "weatherCode" | "isDay"
 >;
 
 interface GeocodingResult {
@@ -154,7 +188,9 @@ interface WeatherResponse {
 
     wind_gusts_10m: number;
 
-    weather_code: number;
+        weather_code: number;
+
+    is_day: number;
   };
 
   hourly: {
@@ -162,9 +198,11 @@ interface WeatherResponse {
 
         precipitation_probability: number[];
 
-    temperature_2m: number[];
+        temperature_2m: number[];
 
     weather_code: number[];
+
+    is_day: number[];
   };
 
   daily: {
@@ -224,10 +262,11 @@ const DEFAULT_CITY: GeocodingResult = {
 
 /* ------------------------------------------------------------------------ */
 
-function getWeatherIcon(code: number): LucideIcon {
-  if (code === 0) return Sun;
+// À noite, céu limpo vira lua e céu parcialmente nublado vira nuvem com lua.
+function getWeatherIcon(code: number, isDay = true): LucideIcon {
+  if (code === 0) return isDay ? Sun : Moon;
 
-  if (code === 1 || code === 2) return CloudSun;
+  if (code === 1 || code === 2) return isDay ? CloudSun : CloudMoon;
 
   if (code === 3 || code === 45 || code === 48) return Cloud;
 
@@ -327,7 +366,7 @@ function loadSavedCities(): SavedCity[] {
     return cities.map((city) => ({
       ...city,
 
-      Icon: getWeatherIcon(city.weatherCode ?? 2),
+      Icon: getWeatherIcon(city.weatherCode ?? 2, city.isDay ?? true),
     }));
   } catch (error) {
     console.error("Erro ao carregar favoritos:", error);
@@ -346,9 +385,11 @@ function getCitySummary(data: WeatherResponse): CityWeatherSummary {
 
     min: round1(data.daily.temperature_2m_min[0] ?? 0),
 
-    Icon: getWeatherIcon(data.current.weather_code),
+        Icon: getWeatherIcon(data.current.weather_code, data.current.is_day !== 0),
 
     weatherCode: data.current.weather_code,
+
+    isDay: data.current.is_day !== 0,
   };
 }
 
@@ -407,7 +448,7 @@ function getHourlyForecast(data: WeatherResponse, nowLabel: string): HourlyItem[
 
       rain: data.hourly.precipitation_probability[index] ?? 0,
 
-      Icon: getWeatherIcon(data.hourly.weather_code[index]),
+      Icon: getWeatherIcon(data.hourly.weather_code[index], data.hourly.is_day[index] !== 0),
     }));
 }
 
@@ -449,6 +490,32 @@ function getWeatherDescriptionKey(code: number): TranslationKey {
 function getCurrentHourIndex(data: WeatherResponse): number {
   const currentHour = data.current.time.slice(0, 13);
   return Math.max(data.hourly.time.findIndex((time) => time.slice(0, 13) === currentHour), 0);
+}
+
+// Último clima consultado: aparece na hora ao abrir e continua disponível sem internet.
+const WEATHER_CACHE_SCHEMA = 2; // sobe quando o formato dos dados muda (cache antigo é ignorado)
+
+const WEATHER_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // dados com mais de 12 horas não são mostrados
+
+interface WeatherCache {
+  schema: number;
+  cityKey: string;
+  savedAt: number;
+  data: WeatherResponse;
+}
+
+function readCachedWeather(key: string): WeatherCache | null {
+  const raw = readStorage(LAST_WEATHER_KEY);
+
+  if (typeof raw !== "object" || raw === null) return null;
+
+  const cache = raw as Partial<WeatherCache>;
+
+  if (cache.schema !== WEATHER_CACHE_SCHEMA || cache.cityKey !== key) return null;
+
+  if (typeof cache.savedAt !== "number" || !cache.data) return null;
+
+  return Date.now() - cache.savedAt < WEATHER_CACHE_MAX_AGE_MS ? (cache as WeatherCache) : null;
 }
 
 const ALERT_WINDOW_HOURS = 12;
@@ -590,7 +657,7 @@ async function getWeather(
   longitude: number,
 ): Promise<WeatherResponse> {
   const response = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,pressure_msl,wind_gusts_10m,weather_code&hourly=precipitation_probability,temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset,uv_index_max,precipitation_sum&forecast_days=7&timezone=auto`,
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,pressure_msl,wind_gusts_10m,weather_code,is_day&hourly=precipitation_probability,temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset,uv_index_max,precipitation_sum&forecast_days=7&timezone=auto`,
   );
 
   if (!response.ok) {
@@ -639,11 +706,18 @@ function App() {
 
   // Clima e favoritos
 
+    // Cidade com que abrimos e, se existir, o último clima salvo dela (mostrado enquanto o novo carrega).
+  const [cachedStart] = useState(() => {
+    const city = getStartupCity(settings.startup);
+
+    return { city, cache: readCachedWeather(cityKey(city)) };
+  });
+
   const [selectedCity, setSelectedCity] = useState<GeocodingResult>(
-    () => getStartupCity(settings.startup),
+    () => cachedStart.city,
   );
 
-  const [weather, setWeather] = useState<WeatherResponse | null>(null);
+  const [weather, setWeather] = useState<WeatherResponse | null>(() => cachedStart.cache?.data ?? null);
 
   const [savedCities, setSavedCities] = useState<SavedCity[]>(() =>
     loadSavedCities(),
@@ -656,7 +730,7 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("");
 
   // Quando os dados foram buscados pela última vez, e um contador que as outras abas observam.
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(() => cachedStart.cache?.savedAt ?? null);
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -723,7 +797,9 @@ function App() {
         temperature: city.temperature,
         max: city.max,
         min: city.min,
-        weatherCode: city.weatherCode,
+                weatherCode: city.weatherCode,
+        isDay: city.isDay,
+
         latitude: city.latitude,
         longitude: city.longitude,
       })),
@@ -867,12 +943,17 @@ function App() {
     window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
   }
 
+    // Começa a baixar o globo assim que a pessoa mostra interesse na aba Mapas.
+  function prefetchPage(page: WeatherPage) {
+    if (page === "mapas") void loadMapPage();
+  }
+
   /* ---- Carregar o clima de uma cidade ---- */
 
   async function loadCity(
     city: GeocodingResult,
 
-    { remember = true }: { remember?: boolean } = {},
+    { remember = true, cache = true }: { remember?: boolean; cache?: boolean } = {},
   ) {
     // Só a requisição mais recente pode atualizar a tela.
 
@@ -891,7 +972,14 @@ function App() {
 
             setWeather(data);
 
-      setLastUpdated(Date.now());
+            const savedAt = Date.now();
+
+      setLastUpdated(savedAt);
+
+      if (cache) {
+        writeStorage(LAST_WEATHER_KEY, { schema: WEATHER_CACHE_SCHEMA, cityKey: cityKey(city), savedAt, data });
+      }
+
 
 
       if (remember) {
@@ -918,7 +1006,16 @@ function App() {
 
       console.error("Erro ao buscar o clima:", error);
 
-      setErrorMessage(navigator.onLine ? t("error.weather") : t("error.offline"));
+      // Se já há um clima na tela (salvo antes), avisamos que é ele que está sendo mostrado.
+      const shownAt = lastUpdatedRef.current;
+
+      setErrorMessage(
+        weatherRef.current && shownAt !== null
+          ? t("error.staleData", { time: new Date(shownAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) })
+          : navigator.onLine
+            ? t("error.weather")
+            : t("error.offline"),
+      );
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
@@ -1172,12 +1269,17 @@ function App() {
   // Estas referências guardam sempre a versão mais nova, para o relógio de atualização automática.
   const refreshRef = useRef(refresh);
 
-  const lastUpdatedRef = useRef(lastUpdated);
+    const lastUpdatedRef = useRef(lastUpdated);
+
+  const weatherRef = useRef(weather);
+
 
   useEffect(() => {
     refreshRef.current = refresh;
 
-    lastUpdatedRef.current = lastUpdated;
+        lastUpdatedRef.current = lastUpdated;
+
+    weatherRef.current = weather;
   });
 
   const autoRefreshMinutes = settings.data.autoRefreshMinutes;
@@ -1275,13 +1377,13 @@ function App() {
       /* sem armazenamento de sessão: nada a apagar */
     }
 
-    void loadCity(DEFAULT_CITY, { remember: false });
+    void loadCity(DEFAULT_CITY, { remember: false, cache: false });
   }
 
   /* ---- Valores exibidos ---- */
 
   const CurrentWeatherIcon = weather
-    ? getWeatherIcon(weather.current.weather_code)
+    ? getWeatherIcon(weather.current.weather_code, weather.current.is_day !== 0)
     : CloudSun;
 
   const currentTemperature = weather
@@ -1415,6 +1517,8 @@ function App() {
               className={`dock-item ${activePage === id ? "dock-item-active" : ""}`}
               aria-current={activePage === id ? "page" : undefined}
               onClick={() => goToPage(id)}
+              onFocus={() => prefetchPage(id)}
+              onPointerEnter={() => prefetchPage(id)}
               aria-label={label}
               title={label}
             >
@@ -1803,7 +1907,23 @@ function App() {
 
         {activePage === "previsao" && <ForecastPage city={selectedCity} refreshKey={refreshKey} />}
 
-        {activePage === "mapas" && <MapPage city={selectedCity} refreshKey={refreshKey} />}
+        {activePage === "mapas" && (
+          <PageErrorBoundary
+            fallback={
+              <div className="empty-cities glass-panel">
+                <p>{t("error.pageLoad")}</p>
+
+                <button className="set-button" onClick={() => window.location.reload()} type="button">
+                  {t("common.reload")}
+                </button>
+              </div>
+            }
+          >
+            <Suspense fallback={<p role="status">{t("common.loadingShort")}</p>}>
+              <MapPage city={selectedCity} refreshKey={refreshKey} />
+            </Suspense>
+          </PageErrorBoundary>
+        )}
 
         {activePage === "configuracoes" && (
           <SettingsPage

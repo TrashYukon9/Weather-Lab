@@ -15,6 +15,7 @@ export const pt = {
   "error.weather": "Não foi possível consultar o clima. Tente novamente.",
   "error.offline": "Sem conexão com a internet. Verifique a rede e tente novamente.",
   "error.city": "Não foi possível buscar a cidade. Tente novamente.", "error.cityNotFound": "Cidade não encontrada. Tente outro nome.",
+  "error.pageLoad": "Não foi possível carregar esta aba. Verifique sua conexão e tente novamente.", "error.staleData": "Não foi possível atualizar agora. Mostrando o último clima salvo, de {time}.", "common.reload": "Recarregar página", "set.privacy.lastWeather": "O último clima consultado, para abrir mais rápido e funcionar sem internet",
   "error.locate": "Não foi possível localizar {name}.", "location.mine": "Minha localização",
   // Condições do tempo
   "weather.clear": "Céu limpo", "weather.mostlyClear": "Predominantemente limpo", "weather.partlyCloudy": "Parcialmente nublado",

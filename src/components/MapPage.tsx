@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import * as THREE from "three";
 
@@ -27,7 +21,7 @@ import {
 import {
   FORECAST_STEPS,
   LAYERS,
-  getMapGrid,
+    getMapGrid,
   legendGradient,
   legendRange,
   renderLayerPixels,
@@ -35,7 +29,7 @@ import {
   type LayerConfig,
   type LayerKey,
   type MapGrid,
-} from "./MapData";
+} from "./mapData";
 
 import type { TranslationKey } from "../i18n/translations";
 import { useI18n } from "../i18n/useI18n";
@@ -157,21 +151,14 @@ function easeInOut(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function formatCoordinates(
-  { lat, lng }: Probe,
-  t: (key: TranslationKey) => string,
-): string {
+function formatCoordinates({ lat, lng }: Probe, t: (key: TranslationKey) => string): string {
   const northSouth = lat >= 0 ? t("dir.short.n") : t("dir.short.s");
   const eastWest = lng >= 0 ? t("dir.short.e") : t("dir.short.w");
   return `${Math.abs(lat).toFixed(1)}° ${northSouth}, ${Math.abs(lng).toFixed(1)}° ${eastWest}`;
 }
 
 // Os dados do mapa ficam em unidades métricas; aqui convertemos só para mostrar.
-function formatLayerValue(
-  key: LayerKey,
-  value: number,
-  units: UnitFormatter,
-): string {
+function formatLayerValue(key: LayerKey, value: number, units: UnitFormatter): string {
   if (key === "temperature") return units.temperatureWithUnit(value);
   if (key === "wind") return units.wind(value);
   if (key === "pressure") return units.pressure(value);
@@ -324,10 +311,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
   useEffect(() => {
     const controller = new AbortController();
 
-    getMapGrid(
-      controller.signal,
-      attempt > 0 || refreshKey !== initialRefreshKey.current,
-    )
+    getMapGrid(controller.signal, attempt > 0 || refreshKey !== initialRefreshKey.current)
       .then((grid) => setResult({ requestKey, grid }))
 
       .catch((error: unknown) => {
@@ -355,6 +339,8 @@ function MapPage({ city, refreshKey }: MapPageProps) {
 
     if (!webglOk || !stage) return;
 
+    
+
     let renderer: THREE.WebGLRenderer;
 
     try {
@@ -370,6 +356,8 @@ function MapPage({ city, refreshKey }: MapPageProps) {
     renderer.domElement.className = "map-canvas";
 
     renderer.domElement.setAttribute("role", "img");
+
+    
 
     stage.prepend(renderer.domElement);
 
@@ -565,7 +553,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
     function flyTo(normal: THREE.Vector3, instant: boolean) {
       const toDistance = baseDistance * 0.85;
 
-      if (instant || reducedMotionRef.current) {
+            if (instant || reducedMotionRef.current) {
         camera.position.copy(normal).setLength(toDistance);
 
         controls.update();
@@ -652,10 +640,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
 
     function animate(time: number) {
       if (flight) {
-        const progress = Math.min(
-          (time - flight.startTime) / flight.duration,
-          1,
-        );
+        const progress = Math.min((time - flight.startTime) / flight.duration, 1);
 
         const eased = easeInOut(progress);
 
@@ -677,9 +662,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
       // O brilho acompanha o tamanho do planeta na tela.
       const distance = camera.position.length();
 
-      glow.scale.setScalar(
-        (2 * (1 / Math.sqrt(1 - 1 / (distance * distance)))) / 0.72,
-      );
+      glow.scale.setScalar((2 * (1 / Math.sqrt(1 - 1 / (distance * distance)))) / 0.72);
 
       // Anel que "pulsa" na cidade.
       if (cityMarker.pulse && cityMarker.group.visible) {
@@ -687,9 +670,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
 
         cityMarker.pulse.scale.setScalar(1 + cycle * 2.6);
 
-        cityMarker.pulse.material.opacity = reducedMotionRef.current
-          ? 0
-          : 0.7 * (1 - cycle);
+        cityMarker.pulse.material.opacity = reducedMotionRef.current ? 0 : 0.7 * (1 - cycle);
       }
 
       // Etiqueta com o nome da cidade, presa ao marcador (some se estiver atrás do planeta).
@@ -838,7 +819,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
 
   /* ---- Marcador do ponto tocado ---- */
 
-  useEffect(() => {
+    useEffect(() => {
     apiRef.current?.setProbe(probe);
   }, [probe]);
 
@@ -889,9 +870,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
           {grid && (
             <span>
               <Clock aria-hidden="true" />
-              {t("map.forecastFor", {
-                time: formatTime(grid.times[step], locale),
-              })}
+              {t("map.forecastFor", { time: formatTime(grid.times[step], locale) })}
             </span>
           )}
         </p>
@@ -966,9 +945,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
                         {t(item.labelKey)}
                       </span>
 
-                      <strong>
-                        {formatLayerValue(item.key, value, units)}
-                      </strong>
+                      <strong>{formatLayerValue(item.key, value, units)}</strong>
                     </li>
                   );
                 })}
@@ -989,11 +966,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
               </div>
             </div>
 
-            <div
-              className="map-steps"
-              role="group"
-              aria-label={t("map.timeStep")}
-            >
+            <div className="map-steps" role="group" aria-label={t("map.timeStep")}>
               {FORECAST_STEPS.map((item, index) => (
                 <button
                   aria-pressed={index === step}
@@ -1002,7 +975,7 @@ function MapPage({ city, refreshKey }: MapPageProps) {
                   onClick={() => setStep(index)}
                   type="button"
                 >
-                  {item.hours === 0 ? t("common.now") : `+${item.hours} h`}
+                                    {item.hours === 0 ? t("common.now") : `+${item.hours} h`}
                 </button>
               ))}
             </div>
@@ -1026,7 +999,9 @@ function MapPage({ city, refreshKey }: MapPageProps) {
 
           {!isLoading && !grid && (
             <div className="map-error" role="alert">
-              <p>{t("map.error")}</p>
+              <p>
+                {t("map.error")}
+              </p>
 
               <button type="button" onClick={() => setAttempt((n) => n + 1)}>
                 <RefreshCw aria-hidden="true" />
@@ -1037,7 +1012,9 @@ function MapPage({ city, refreshKey }: MapPageProps) {
         </div>
       </div>
 
-      <p className="map-footnote">{t("map.footnote")}</p>
+      <p className="map-footnote">
+        {t("map.footnote")}
+      </p>
     </section>
   );
 }
